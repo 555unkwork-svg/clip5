@@ -5,7 +5,8 @@ name: Instaladores
 #   macOS/clip5-<versión>-macOS.pkg             (Universal: Apple Silicon + Intel)
 #   LEEME.pdf / LEEME.html                      (manual; se versionan en installer/, regenerar con
 #                                                python3 installer/generar_manual.py)
-# Se ejecuta a mano (Actions → Instaladores → Run workflow) o al publicar una etiqueta v*.
+# Se ejecuta a mano (Actions → Instaladores → Run workflow) o al publicar una etiqueta v*; en ambos
+# casos publica (o actualiza) la Release v<versión> con el .zip.
 # Firma opcional (secretos del repositorio): MACOS_CERT_P12, MACOS_CERT_PASSWORD,
 # MACOS_SIGN_APP, MACOS_SIGN_INSTALLER, MACOS_NOTARY_APPLE_ID, MACOS_NOTARY_PASSWORD, MACOS_NOTARY_TEAM.
 
@@ -118,8 +119,15 @@ jobs:
         with:
           name: clip5-${{ needs.version.outputs.v }}-instaladores
           path: clip5-*-instaladores.zip
-      - name: Publicar en Releases (solo con etiqueta)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Publicar en Releases
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ needs.version.outputs.v }}
+          target_commitish: ${{ github.sha }}
+          name: clip5 ${{ needs.version.outputs.v }} (beta)
+          prerelease: true
+          body: |
+            Instaladores de clip5 ${{ needs.version.outputs.v }} (beta) para Windows y macOS, con el manual (LEEME.pdf).
+            Descarga **clip5-${{ needs.version.outputs.v }}-instaladores.zip** y sigue la sección 3 del manual.
+            Esta beta no está firmada: Windows y macOS muestran un aviso la primera vez (el manual explica cómo continuar).
           files: clip5-*-instaladores.zip
