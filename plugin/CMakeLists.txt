@@ -84,7 +84,13 @@ clap_juce_extensions_plugin(TARGET clip5
     CLAP_FEATURES audio-effect distortion mastering stereo mono)
 
 # ------------------------------------------------------------------ herramienta de capturas de la UI
-option(CLIP5_BUILD_TOOLS "Compilar herramientas de desarrollo" ON)
+# La herramienta de capturas usa un bucle de mensajes modal: solo se compila en Linux.
+if(UNIX AND NOT APPLE)
+    set(CLIP5_TOOLS_DEFAULT ON)
+else()
+    set(CLIP5_TOOLS_DEFAULT OFF)
+endif()
+option(CLIP5_BUILD_TOOLS "Compilar herramientas de desarrollo" ${CLIP5_TOOLS_DEFAULT})
 if(CLIP5_BUILD_TOOLS)
     juce_add_console_app(clip5_snapshot PRODUCT_NAME "clip5_snapshot")
     target_sources(clip5_snapshot PRIVATE ${CMAKE_SOURCE_DIR}/tools/ui_snapshot.cpp)
