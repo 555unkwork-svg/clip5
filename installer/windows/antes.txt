@@ -1,0 +1,10 @@
+Gracias por instalar clip5.
+
+El instalador copiará los plugins en las carpetas estándar de Windows:
+
+  VST3:  C:\Program Files\Common Files\VST3
+  CLAP:  C:\Program Files\Common Files\CLAP
+
+Cierra tu DAW antes de continuar. Al terminar, ábrela y, si hace falta, vuelve a escanear los plugins.
+
+El manual completo (LEEME) queda en la carpeta de instalación y en el menú Inicio.

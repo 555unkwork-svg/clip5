@@ -1,0 +1,125 @@
+name: Instaladores
+
+# Genera clip5-<versión>-instaladores.zip con:
+#   Windows/clip5-<versión>-Windows-Setup.exe   (Inno Setup)
+#   macOS/clip5-<versión>-macOS.pkg             (Universal: Apple Silicon + Intel)
+#   LEEME.pdf / LEEME.html                      (manual; se versionan en installer/, regenerar con
+#                                                python3 installer/generar_manual.py)
+# Se ejecuta a mano (Actions → Instaladores → Run workflow) o al publicar una etiqueta v*.
+# Firma opcional (secretos del repositorio): MACOS_CERT_P12, MACOS_CERT_PASSWORD,
+# MACOS_SIGN_APP, MACOS_SIGN_INSTALLER, MACOS_NOTARY_APPLE_ID, MACOS_NOTARY_PASSWORD, MACOS_NOTARY_TEAM.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: [ "v*" ]
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    runs-on: ubuntu-24.04
+    outputs:
+      v: ${{ steps.v.outputs.v }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then V="${GITHUB_REF#refs/tags/v}";
+          else V=$(sed -nE 's/^project\(clip5 VERSION ([0-9.]+).*/\1/p' CMakeLists.txt); fi
+          echo "v=$V" >> "$GITHUB_OUTPUT"
+
+  macos:
+    needs: version
+    runs-on: macos-14
+    env:
+      HAS_CERT: ${{ secrets.MACOS_CERT_P12 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compilar (Universal)
+        run: |
+          cmake -S . -B build -G Xcode -DCLIP5_BUILD_TESTS=OFF -DCLIP5_BUILD_BENCH=OFF -DCLIP5_BUILD_TOOLS=OFF \
+                -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+          cmake --build build --config Release --target clip5_AU clip5_VST3 clip5_CLAP clip5_Standalone -- -quiet
+      - name: Certificados (opcional)
+        if: ${{ env.HAS_CERT == 'true' }}
+        env:
+          P12: ${{ secrets.MACOS_CERT_P12 }}
+          P12_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          echo "$P12" | base64 --decode > cert.p12
+          security create-keychain -p ci build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p ci build.keychain
+          security import cert.p12 -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/productbuild
+          security set-key-partition-list -S apple-tool:,apple: -s -k ci build.keychain
+          rm cert.p12
+      - name: Instalador .pkg
+        env:
+          CLIP5_SIGN_APP: ${{ secrets.MACOS_SIGN_APP }}
+          CLIP5_SIGN_INSTALLER: ${{ secrets.MACOS_SIGN_INSTALLER }}
+          NOTARY_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}
+          NOTARY_PW: ${{ secrets.MACOS_NOTARY_PASSWORD }}
+          NOTARY_TEAM: ${{ secrets.MACOS_NOTARY_TEAM }}
+        run: |
+          if [ -n "$NOTARY_ID" ]; then
+            xcrun notarytool store-credentials clip5 --apple-id "$NOTARY_ID" --password "$NOTARY_PW" --team-id "$NOTARY_TEAM"
+            export CLIP5_NOTARY_PROFILE=clip5
+          fi
+          installer/macos/build_pkg.sh build/plugin/clip5_artefacts/Release "${{ needs.version.outputs.v }}" out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: out/*.pkg
+
+  windows:
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compilar (x64)
+        run: |
+          cmake -S . -B build -A x64 -DCLIP5_BUILD_TESTS=OFF -DCLIP5_BUILD_BENCH=OFF -DCLIP5_BUILD_TOOLS=OFF
+          cmake --build build --config Release --target clip5_VST3 clip5_CLAP clip5_Standalone --parallel 4
+      - name: Instalador .exe (Inno Setup)
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress; }
+          $src = Resolve-Path "build/plugin/clip5_artefacts/Release"
+          $doc = Resolve-Path "installer"
+          New-Item -ItemType Directory -Force -Path out | Out-Null
+          $out = Resolve-Path "out"
+          & $iscc "/DAppVersion=${{ needs.version.outputs.v }}" "/DSrcDir=$src" "/DDocDir=$doc" "/DOutDir=$out" installer/windows/clip5.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: out/*.exe
+
+  zip:
+    needs: [ version, macos, windows ]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { path: art }
+      - name: Armar el .zip
+        run: |
+          V="${{ needs.version.outputs.v }}"
+          D="clip5-$V-instaladores"
+          mkdir -p "$D/Windows" "$D/macOS"
+          cp art/windows/*.exe "$D/Windows/"
+          cp art/macos/*.pkg "$D/macOS/"
+          cp installer/LEEME.pdf installer/LEEME.html "$D/"
+          zip -qr "$D.zip" "$D"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clip5-${{ needs.version.outputs.v }}-instaladores
+          path: clip5-*-instaladores.zip
+      - name: Publicar en Releases (solo con etiqueta)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: clip5-*-instaladores.zip
