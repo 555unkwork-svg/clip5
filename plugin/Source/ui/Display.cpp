@@ -6,195 +6,176 @@ namespace clip5::ui
 using params::es;
 using params::formatDb;
 
-// =====================================================================================
-TransferCurve::TransferCurve()
-{
-    setTooltip (es ("Curva de transferencia actual: entrada contra salida en dB relativos al techo. "
-                    "Se actualiza con Densidad y Modo."));
-    setInterceptsMouseClicks (true, false);
-}
-
-void TransferCurve::set (float d, int m)
-{
-    if (d == density && m == mode) return;
-    density = d;
-    mode = m;
-    rebuild();
-    repaint();
-}
-
-void TransferCurve::rebuild()
-{
-    curve.clear();
-    for (int i = 0; i <= 160; ++i)
-    {
-        const double din = -36.0 + 42.0 * i / 160.0;
-        const double y = curves::shaper (std::pow (10.0, din / 20.0), density, (ClipMode) mode);
-        const double dout = std::min (6.0, 20.0 * std::log10 (std::max (y, 1e-6)));
-        const float x = (float) ((din + 36.0) / 42.0), yy = (float) ((dout + 36.0) / 42.0);
-        if (i == 0) curve.startNewSubPath (x, 1.0f - yy); else curve.lineTo (x, 1.0f - yy);
-    }
-}
-
-void TransferCurve::paint (juce::Graphics& g)
-{
-    auto r = getLocalBounds().toFloat();
-    g.setColour (col::fondo.withAlpha (0.92f));
-    g.fillRoundedRectangle (r, 6.0f);
-    g.setColour (col::lin);
-    g.drawRoundedRectangle (r.reduced (0.5f), 6.0f, 1.0f);
-    g.setColour (col::txt2);
-    g.setFont (Fonts::sans (10.5f));
-    g.drawText (es ("Transferencia"), r.reduced (8, 5).removeFromTop (14), juce::Justification::topLeft);
-
-    auto plot = r.reduced (12.0f).withTrimmedTop (10.0f);
-    auto map = [&] (float nx, float ny) { return juce::Point<float> (plot.getX() + nx * plot.getWidth(), plot.getY() + ny * plot.getHeight()); };
-    g.setColour (col::lin);
-    for (float d : { -30.0f, -18.0f, -6.0f })
-    {
-        const float n = (d + 36.0f) / 42.0f;
-        g.drawLine ({ map (n, 0), map (n, 1) }, 1.0f);
-        g.drawLine ({ map (0, 1 - n), map (1, 1 - n) }, 1.0f);
-    }
-    // identidad
-    juce::Path diag;
-    diag.startNewSubPath (map (0, 1));
-    diag.lineTo (map (1, 0));
-    float dashes[] = { 3.0f, 3.0f };
-    juce::Path dashed;
-    juce::PathStrokeType (1.0f).createDashedStroke (dashed, diag, dashes, 2);
-    g.setColour (col::txt2);
-    g.fillPath (dashed);
-    // techo
-    const float n0 = 36.0f / 42.0f;
-    g.setColour (col::coral);
-    g.drawLine ({ map (0, 1 - n0), map (1, 1 - n0) }, 1.2f);
-    // curva
-    g.setColour (col::menta);
-    g.strokePath (curve, juce::PathStrokeType (2.0f), juce::AffineTransform::scale (plot.getWidth(), plot.getHeight()).translated (plot.getX(), plot.getY()));
-}
-
-// =====================================================================================
 HistoryDisplay::HistoryDisplay (MeterHub& h) : hub (h)
 {
-    addAndMakeVisible (transfer);
-    setOpaque (true);
+    setOpaque (false);
+    setInterceptsMouseClicks (false, false);
 }
 
-void HistoryDisplay::resized()
+juce::Rectangle<int> HistoryDisplay::plotArea() const
 {
-    transfer.setBounds (getWidth() - 162, 10, 152, 152);
-    bgCeil = 1000.0f;
+    return { 12, 54, getWidth() - 58, getHeight() - 118 };
 }
 
-float HistoryDisplay::yFor (float db) const noexcept
+float HistoryDisplay::yFor (float db, juce::Rectangle<float> plot) const noexcept
 {
-    // escala: de max(0 dBFS, techo + 6) hacia abajo, 36 dB de rango
-    const float top = 34.0f, bottom = (float) getHeight() - 28.0f;
-    const float hi = std::max (0.0f, ceilDb + 6.0f), lo = hi - 36.0f;
-    return top + (hi - juce::jlimit (lo, hi, db)) / (hi - lo) * (bottom - top);
-}
-
-void HistoryDisplay::renderBackground()
-{
-    const float scale = (float) juce::Component::getApproximateScaleFactorForComponent (this);
-    background = juce::Image (juce::Image::RGB, std::max (1, (int) (getWidth() * scale)), std::max (1, (int) (getHeight() * scale)), true);
-    juce::Graphics g (background);
-    g.addTransform (juce::AffineTransform::scale (scale));
-    g.fillAll (col::sup);
-    g.setFont (Fonts::mono (10.5f));
-    // rejilla en múltiplos absolutos de 6 dBFS dentro del rango visible
-    const float hi = std::max (0.0f, ceilDb + 6.0f), lo = hi - 36.0f;
-    for (float db = std::floor (hi / 6.0f) * 6.0f; db >= lo; db -= 6.0f)
-    {
-        const float y = yFor (db);
-        g.setColour (col::lin);
-        g.drawHorizontalLine ((int) y, 0.0f, (float) getWidth());
-        g.setColour (col::txt2);
-        g.drawText (formatDb (db, 0), 6, (int) y - 14, 40, 12, juce::Justification::left);
-    }
-    // leyenda
-    struct Item { juce::Colour c; const char* t; };
-    const Item items[] = { { col::txt, "Salida" }, { col::coral, "Recorte" }, { col::menta, "Densidad" }, { col::txt2.withAlpha (0.6f), "Entrada" } };
-    float x = 48.0f;
-    g.setFont (Fonts::sans (11.0f));
-    for (const auto& it : items)
-    {
-        g.setColour (it.c);
-        g.fillRoundedRectangle (x, 13.0f, 10.0f, 3.0f, 1.5f);
-        g.setColour (col::txt2);
-        const auto t = es (it.t);
-        g.drawText (t, (int) x + 15, 6, 80, 16, juce::Justification::left);
-        x += 22.0f + (float) juce::GlyphArrangement::getStringWidthInt (Fonts::sans (11.0f), t);
-    }
-    bgCeil = ceilDb;
+    const float hi = std::max (3.0f, ceilDb + 6.0f), lo = hi - 36.0f;
+    return plot.getY() + (hi - juce::jlimit (lo, hi, db)) / (hi - lo) * plot.getHeight();
 }
 
 void HistoryDisplay::tick (float c)
 {
     ceilDb = c;
-    if (hub.totalColumns() != lastTotal || bgCeil != ceilDb)
+    if (hub.totalColumns() != lastTotal || paintedCeil != ceilDb)
     {
         lastTotal = hub.totalColumns();
-        repaint (getLocalBounds().withTrimmedRight (0));
+        repaint();
     }
 }
 
 void HistoryDisplay::paint (juce::Graphics& g)
 {
-    if (bgCeil != ceilDb || background.isNull()) renderBackground();
-    g.drawImage (background, getLocalBounds().toFloat());
+    paintedCeil = ceilDb;
+    const auto& c = pal();
+    const auto bounds = getLocalBounds().toFloat();
+    g.setColour (c.graphPanel());
+    g.fillRoundedRectangle (bounds, 10.0f);
+    const auto plot = plotArea().toFloat();
+    g.setColour (c.graf);
+    g.fillRect (plot);
 
-    const int W = getWidth();
-    const int n = std::min (W, hub.columnsAvailable());
-    const float bottom = (float) getHeight();
-
-    // entrada (gris) y salida (marfil) — una columna por píxel, de derecha a izquierda
-    juce::Path in, out, outLine;
-    in.startNewSubPath ((float) W, bottom);
-    out.startNewSubPath ((float) W, bottom);
-    for (int i = 0; i < n; ++i)
+    // ---- rejilla y escalas
+    const auto sc = c.graphScale();
+    const float hi = std::max (3.0f, ceilDb + 6.0f), lo = hi - 36.0f;
+    g.setFont (Fonts::mono (10.0f));
+    for (float d = std::floor (hi / 6.0f) * 6.0f; d >= lo; d -= 6.0f)
     {
-        const auto& c = hub.column (i);
-        const float x = (float) (W - 1 - i);
-        in.lineTo (x, yFor (c.inDb));
-        out.lineTo (x, yFor (c.outDb));
-        if (i == 0) outLine.startNewSubPath (x, yFor (c.outDb)); else outLine.lineTo (x, yFor (c.outDb));
+        const float y = yFor (d, plot);
+        g.setColour (sc.withAlpha (0.18f));
+        g.drawHorizontalLine ((int) y, plot.getX(), plot.getRight());
+        g.setColour (sc);
+        g.drawText (d == 0 ? juce::String ("0") : formatDb (d, 0), (int) plot.getRight() + 8, (int) y - 7, 40, 14, juce::Justification::left);
     }
-    in.lineTo ((float) (W - n), bottom);
-    out.lineTo ((float) (W - n), bottom);
-    in.closeSubPath();
-    out.closeSubPath();
-    g.setColour (col::txt2.withAlpha (0.14f));
-    g.fillPath (in);
-    g.setColour (col::txt.withAlpha (0.07f));
-    g.fillPath (out);
-    g.setColour (col::txt);
-    g.strokePath (outLine, juce::PathStrokeType (1.3f));
-
-    // recorte (coral): del techo al nivel pre-recorte, solo donde hubo recorte
-    const float yC = yFor (ceilDb);
-    g.setColour (col::coral.withAlpha (0.6f));
-    for (int i = 0; i < n; ++i)
+    g.drawText ("dBFS", (int) plot.getRight() + 8, (int) plot.getBottom() - 4, 40, 12, juce::Justification::left);
+    const int W = (int) plot.getWidth();
+    for (int s = 0; s <= 8; s += 2)
     {
-        const auto& c = hub.column (i);
-        if (c.clipDb > 0.05f)
+        const float x = plot.getRight() - (float) s * 100.0f;
+        if (x < plot.getX() + 20) break;
+        g.setColour (sc.withAlpha (0.12f));
+        g.drawVerticalLine ((int) x, plot.getY(), plot.getBottom());
+        g.setColour (sc);
+        g.drawText (s == 0 ? juce::String ("0 s") : es ("−") + juce::String (s) + " s", (int) x - (s == 0 ? 26 : 14), (int) plot.getY() - 16, 40, 12,
+                    s == 0 ? juce::Justification::right : juce::Justification::left);
+    }
+
+    // ---- datos (una columna por píxel, de derecha a izquierda)
+    const int n = std::min (W, hub.columnsAvailable());
+    if (n > 1)
+    {
+        juce::Path in, outLine;
+        in.startNewSubPath (plot.getRight(), plot.getBottom());
+        for (int i = 0; i < n; ++i)
         {
-            const float y = yFor (c.ceilDb + c.clipDb);
-            g.fillRect ((float) (W - 1 - i), y, 1.0f, std::max (1.0f, yC - y));
+            const auto& col = hub.column (i);
+            const float x = plot.getRight() - (float) i;
+            in.lineTo (x, yFor (col.inDb, plot));
+            const float yo = yFor (col.outDb, plot);
+            if (i == 0) outLine.startNewSubPath (x, yo); else outLine.lineTo (x, yo);
+        }
+        in.lineTo (plot.getRight() - (float) (n - 1), plot.getBottom());
+        in.closeSubPath();
+        g.saveState();
+        g.reduceClipRegion (plot.toNearestInt());
+        g.setColour (c.inFill.withAlpha (0.9f));
+        g.fillPath (in);
+        g.setColour (c.inBorde);
+        g.strokePath (in, juce::PathStrokeType (1.1f));
+        g.setColour (c.outCont);
+        g.strokePath (outLine, juce::PathStrokeType (c.outCont == c.outLine ? 1.8f : 3.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        g.setColour (c.outLine);
+        g.strokePath (outLine, juce::PathStrokeType (1.4f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        // sobre el techo: exceso antes de la curva
+        g.setColour (c.overArea);
+        const float yC = yFor (ceilDb, plot);
+        for (int i = 0; i < n; ++i)
+        {
+            const auto& col = hub.column (i);
+            if (col.clipDb > 0.05f)
+            {
+                const float y = yFor (col.ceilDb + col.clipDb, plot);
+                g.fillRect (plot.getRight() - (float) i - 0.5f, y, 1.6f, std::max (1.0f, yC - y));
+            }
+        }
+        g.restoreState();
+        // banda de Densidad
+        g.setColour (c.dens);
+        for (int i = 0; i < n; ++i)
+        {
+            const float h = juce::jlimit (0.0f, 1.0f, hub.column (i).densDb / 6.0f) * 13.0f;
+            if (h > 0.3f) g.fillRect (plot.getRight() - (float) i - 0.5f, plot.getBottom() + 18.0f - h, 1.2f, h);
         }
     }
-    // Densidad (menta): banda inferior proporcional a la ganancia aplicada
-    g.setColour (col::menta.withAlpha (0.75f));
-    for (int i = 0; i < n; ++i)
-    {
-        const float h = hub.column (i).densDb / 6.0f * 18.0f;
-        if (h > 0.2f) g.fillRect ((float) (W - 1 - i), bottom - 2.0f - h, 1.0f, h);
-    }
-    // línea de techo
-    g.setColour (col::coral);
-    g.drawHorizontalLine ((int) yC, 0.0f, (float) W);
+
+    // ---- techo
+    const float yC = yFor (ceilDb, plot);
+    g.setColour (c.over);
+    const float dashes[] = { 6.0f, 4.0f };
+    g.drawDashedLine ({ plot.getX(), yC, plot.getRight(), yC }, dashes, 2, 1.6f);
+
+    // ---- leyenda
+    const float ly = bounds.getBottom() - 22.0f;
+    float x = plot.getX();
     g.setFont (Fonts::sans (11.0f));
-    g.drawText (es ("techo ") + formatDb (ceilDb) + " dB", 48, (int) yC + 3, 150, 14, juce::Justification::left);
+    auto label = [&] (const juce::String& t) { g.setColour (sc); g.drawText (t, (int) x, (int) ly - 7, 120, 14, juce::Justification::left); x += juce::GlyphArrangement::getStringWidth (Fonts::sans (11.0f), t) + 18.0f; };
+    g.setColour (c.inFill); g.fillRect (x, ly - 4.0f, 10.0f, 8.0f); g.setColour (c.inBorde); g.drawRect (x, ly - 4.0f, 10.0f, 8.0f); x += 15; label ("Entrada");
+    g.setColour (c.outCont); g.fillRect (x, ly - 2.0f, 13.0f, 4.0f); g.setColour (c.outLine); g.fillRect (x, ly - 1.0f, 13.0f, 2.0f); x += 18; label ("Salida");
+    g.setColour (c.over); g.drawDashedLine ({ x, ly, x + 16.0f, ly }, dashes, 2, 1.6f); x += 21; label (es ("Sobre el techo"));
+    g.setColour (c.dens); g.fillRect (x, ly - 5.0f, 3.0f, 9.0f); g.fillRect (x + 4.0f, ly - 2.0f, 3.0f, 6.0f); x += 12; label ("Densidad");
+
+    auto chip = juce::Rectangle<float> (134.0f, 20.0f).withRightX (plot.getRight() + 12.0f).withCentre ({ plot.getRight() - 55.0f, ly });
+    g.setColour (c.graphButton());
+    g.fillRoundedRectangle (chip, 5.0f);
+    g.setColour (c.over);
+    g.fillEllipse (chip.getX() + 8.0f, ly - 3.0f, 6.0f, 6.0f);
+    g.setFont (Fonts::mono (10.5f));
+    g.drawText (es ("Techo ") + formatDb (ceilDb) + " dBFS", chip.withTrimmedLeft (18.0f), juce::Justification::centredLeft);
+}
+
+void drawTransferCurve (juce::Graphics& g, juce::Rectangle<float> area, float densityDb, int mode)
+{
+    const auto& c = pal();
+    g.setColour (c.proc);
+    g.fillRoundedRectangle (area, 6.0f);
+    auto plot = area.reduced (14.0f);
+    auto map = [&] (float din, float dout) {
+        return juce::Point<float> (plot.getX() + (din + 36.0f) / 42.0f * plot.getWidth(),
+                                   plot.getBottom() - (std::min (dout, 6.0f) + 36.0f) / 42.0f * plot.getHeight());
+    };
+    g.setFont (Fonts::mono (9.5f));
+    for (float d : { -30.0f, -18.0f, -6.0f })
+    {
+        g.setColour (c.txt2.withAlpha (0.2f));
+        g.drawLine ({ map (d, -36), map (d, 6) }, 1.0f);
+        g.drawLine ({ map (-36, d), map (6, d) }, 1.0f);
+    }
+    const float dashes[] = { 3.0f, 3.0f };
+    g.setColour (c.txt2.withAlpha (0.7f));
+    g.drawDashedLine ({ map (-36, -36), map (6, 6) }, dashes, 2, 1.0f);
+    const float d2[] = { 6.0f, 4.0f };
+    g.setColour (c.over);
+    g.drawDashedLine ({ map (-36, 0), map (6, 0) }, d2, 2, 1.5f);
+    juce::Path p;
+    for (int i = 0; i <= 160; ++i)
+    {
+        const double din = -36.0 + 42.0 * i / 160.0;
+        const double y = curves::shaper (std::pow (10.0, din / 20.0), densityDb, (ClipMode) mode);
+        const auto pt = map ((float) din, (float) (20.0 * std::log10 (std::max (y, 1e-6))));
+        if (i == 0) p.startNewSubPath (pt); else p.lineTo (pt);
+    }
+    g.setColour (c.sel);
+    g.strokePath (p, juce::PathStrokeType (2.6f));
+    g.setColour (c.txt2);
+    g.drawText (es ("entrada (dB re techo) →"), plot.removeFromBottom (12.0f), juce::Justification::right);
 }
 } // namespace clip5::ui

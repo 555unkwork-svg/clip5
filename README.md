@@ -15,6 +15,7 @@ recorte, contorno dinámico de agudos (**Suavizado**), **Tono** integrado en la 
 | 3 | Suavizado, decimación con Tono, Techo estricto, mezclador, latencia | ✅ `dsp/` |
 | 4 | Medición (pico, TP, LUFS), Reloj de recorte, display | ✅ `dsp/`, `plugin/Source/ui/` |
 | 5 | Plugin JUCE, UI, A/B, presets, validación, reporte de CPU | ✅ `plugin/`, informe final |
+| 0.10 | Rediseño de interfaz: 10 temas con stickers propios, paneles, teclado | ✅ `docs/rediseno/`, `plugin/Source/ui/` |
 
 Informe completo con resultados, decisiones y pendientes: **`docs/informe_final.html`**.
 

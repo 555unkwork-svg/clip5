@@ -54,26 +54,26 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     l.add (dbParam (id::entrada, "Entrada", -12.0f, 12.0f, 0.0f));
     l.add (dbParam (id::densidad, "Densidad", 0.0f, 6.0f, 0.0f));
     l.add (dbParam (id::techo, "Techo", -36.0f, 0.0f, -1.0f));
-    l.add (std::make_unique<APF> (pid (id::suavizado), es ("Suavizado"), juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f,
+    l.add (std::make_unique<APF> (pid (id::suavizado), es ("Smooth"), juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f,
                                   Attr().withLabel ("%").withStringFromValueFunction ([] (float v, int) {
                                       return juce::String (juce::roundToInt (v)) + " %"; })));
-    l.add (std::make_unique<APC> (pid (id::modo), es ("Modo de recorte"),
-                                  juce::StringArray { es ("Suave"), es ("Firme"), es ("Duro"), es ("Apagado") }, 1));
+    l.add (std::make_unique<APC> (pid (id::modo), es ("Curva de recorte"),
+                                  juce::StringArray { es ("Suave"), es ("Medio"), es ("Duro"), es ("Sin recorte") }, 1));
     l.add (dbParam (id::salida, "Salida", -12.0f, 12.0f, 0.0f));
-    l.add (std::make_unique<APB> (pid (id::enlaceES), es ("Enlace E/S"), false));
-    l.add (faderParam (id::humedo, "Húmedo", 0.0f));
-    l.add (faderParam (id::seco, "Seco", kFaderMinDb));
+    l.add (std::make_unique<APB> (pid (id::enlaceES), es ("Compensación de entrada"), false));
+    l.add (faderParam (id::humedo, "Procesada", 0.0f));
+    l.add (faderParam (id::seco, "Original", kFaderMinDb));
     l.add (std::make_unique<APB> (pid (id::enlaceMezcla), es ("Enlace de mezcla"), true));
-    l.add (std::make_unique<APC> (pid (id::tono), es ("Tono"),
+    l.add (std::make_unique<APC> (pid (id::tono), es ("Atenuación fija de agudos"),
                                   juce::StringArray { es ("Plano"), es ("Seda"), es ("Terciopelo") }, 0));
-    l.add (std::make_unique<APB> (pid (id::techoEstricto), es ("Techo estricto"), true));
-    l.add (std::make_unique<APB> (pid (id::suavExt), es ("Suavizado extendido"), false));
-    l.add (std::make_unique<APB> (pid (id::gananciaUnitaria), es ("Ganancia unitaria"), false));
-    l.add (std::make_unique<APC> (pid (id::calidad), es ("Calidad"),
-                                  juce::StringArray { es ("Eco (1x)"), es ("Normal (2x)"), es ("Alta (4x)"), es ("Máxima (8x)") }, 1));
-    l.add (std::make_unique<APC> (pid (id::calidadOffline), es ("Calidad al exportar"),
-                                  juce::StringArray { es ("Igual"), es ("Eco (1x)"), es ("Normal (2x)"), es ("Alta (4x)"), es ("Máxima (8x)") }, 4));
-    l.add (std::make_unique<APC> (pid (id::fase), es ("Fase"),
+    l.add (std::make_unique<APB> (pid (id::techoEstricto), es ("Limitador True Peak"), true));
+    l.add (std::make_unique<APB> (pid (id::suavExt), es ("Rango de Smooth −3 dB"), false));
+    l.add (std::make_unique<APB> (pid (id::gananciaUnitaria), es ("Compensación de Densidad"), false));
+    l.add (std::make_unique<APC> (pid (id::calidad), es ("Oversampling"),
+                                  juce::StringArray { es ("1×"), es ("2×"), es ("4×"), es ("8×") }, 1));
+    l.add (std::make_unique<APC> (pid (id::calidadOffline), es ("Oversampling al exportar"),
+                                  juce::StringArray { es ("Igual"), es ("1×"), es ("2×"), es ("4×"), es ("8×") }, 4));
+    l.add (std::make_unique<APC> (pid (id::fase), es ("Fase del filtrado"),
                                   juce::StringArray { es ("Lineal"), es ("Mínima") }, 0));
     return l;
 }

@@ -1,10 +1,10 @@
 ; clip5 — instalador para Windows (Inno Setup 6)
-; Compilar:  iscc /DAppVersion=0.9.0 /DSrcDir=<carpeta con los binarios> /DOutDir=<salida> clip5.iss
+; Compilar:  iscc /DAppVersion=0.10.0 /DSrcDir=<carpeta con los binarios> /DOutDir=<salida> clip5.iss
 ; <SrcDir> debe contener: VST3\clip5.vst3\ (bundle), CLAP\clip5.clap, Standalone\clip5.exe,
 ; opcionalmente AAX\clip5.aaxplugin\, y LEEME.pdf / LEEME.md.
 
 #ifndef AppVersion
-  #define AppVersion "0.9.0"
+  #define AppVersion "0.10.0"
 #endif
 #ifndef SrcDir
   #define SrcDir "..\..\build\plugin\clip5_artefacts\Release"

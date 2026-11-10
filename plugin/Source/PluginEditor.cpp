@@ -7,291 +7,250 @@ using params::es;
 using params::formatDb;
 namespace id = params::id;
 
-// =====================================================================================
-//  Panel Avanzado (plegable, superpuesto sobre el display)
-// =====================================================================================
-class Clip5Editor::Advanced : public juce::Component
+namespace
 {
-public:
-    explicit Advanced (juce::AudioProcessorValueTreeState& s)
-        : tono (s, id::tono, { es ("Plano"), es ("Seda"), es ("Terciopelo") }),
-          estricto (s, id::techoEstricto, es ("Activado"), es ("Desactivado")),
-          suavExt (s, id::suavExt, es ("Hasta −3 dB"), es ("Hasta −2 dB")),
-          enlace (s, id::enlaceES, es ("Activado"), es ("Desactivado")),
-          offline (s, id::calidadOffline, { es ("Igual"), es ("Eco"), es ("Normal"), es ("Alta"), es ("Máx.") }),
-          fase (s, id::fase, { es ("Lineal"), es ("Mínima") }),
-          unitaria (s, id::gananciaUnitaria, es ("Activada"), es ("Desactivada"))
-    {
-        tono.setTooltip (es ("Caída suave de agudos incorporada al filtro de decimación (sin costo de CPU). "
-                             "Plano bajo 1 kHz."));
-        estricto.setTooltip (es ("Limitador true peak al final de la cadena: la salida nunca supera el techo "
-                                 "(medición BS.1770-4), incluso con mezcla paralela o Salida positiva."));
-        suavExt.setTooltip (es ("Profundidad máxima del Suavizado."));
-        enlace.setTooltip (es ("Subir la entrada baja en la misma cantidad la salida del camino procesado: el volumen "
-                               "percibido se mantiene mientras se ajusta el recorte. SALIDA queda como offset global "
-                               "(también con Shift+arrastrar ENTRADA)."));
-        offline.setTooltip (es ("Calidad usada al exportar (render sin tiempo real)."));
-        fase.setTooltip (es ("Lineal: sin distorsión de fase, mezcla paralela perfecta. Mínima: latencia de pocas "
-                             "muestras; la mezcla con SECO puede colorear agudos."));
-        unitaria.setTooltip (es ("Resta la ganancia nominal de Densidad para comparar a igual volumen."));
-        for (juce::Component* c : std::initializer_list<juce::Component*> { &tono, &estricto, &suavExt, &enlace, &offline, &fase, &unitaria })
-            addAndMakeVisible (c);
-    }
+    // tarjetas fijas del lienzo base (1040 × 640)
+    const juce::Rectangle<int> kLogo { 14, 14, 184, 74 }, kProc { 14, 98, 184, 528 }, kTop { 208, 14, 818, 42 },
+        kGraph { 208, 66, 818, 400 }, kMix { 208, 476, 420, 150 }, kSmooth { 638, 476, 196, 150 }, kOs { 844, 476, 182, 150 };
+}
 
-    void paint (juce::Graphics& g) override
-    {
-        auto r = getLocalBounds().toFloat();
-        g.setColour (col::sup);
-        g.fillRoundedRectangle (r, 8.0f);
-        g.setColour (col::lin);
-        g.drawRoundedRectangle (r.reduced (0.5f), 8.0f, 1.0f);
-        g.setFont (Fonts::sans (10.5f, true));
-        g.setColour (col::txt2);
-        for (auto& [c, t] : titles) g.drawText (t, c->getBounds().translated (0, -18).withHeight (14), juce::Justification::left);
-    }
-
-    void resized() override
-    {
-        auto r = getLocalBounds().reduced (16, 14);
-        const int colW = r.getWidth() / 4;
-        auto top = r.removeFromTop (r.getHeight() / 2);
-        auto place = [] (juce::Rectangle<int> area, juce::Component& c, int w, int h) {
-            c.setBounds (area.reduced (0, 0).withTrimmedTop (20).withSize (w, h));
-        };
-        place (top.removeFromLeft (colW), tono, colW - 20, 28);
-        place (top.removeFromLeft (colW), estricto, colW - 20, 24);
-        place (top.removeFromLeft (colW), suavExt, colW - 20, 24);
-        place (top.removeFromLeft (colW), enlace, colW - 20, 24);
-        place (r.removeFromLeft (colW), offline, colW - 20, 28);
-        place (r.removeFromLeft (colW), fase, colW - 20, 28);
-        place (r.removeFromLeft (colW), unitaria, colW - 20, 24);
-        titles = { { &tono, es ("TONO") }, { &estricto, es ("TECHO ESTRICTO") }, { &suavExt, es ("SUAVIZADO EXTENDIDO") },
-                   { &enlace, es ("ENLACE E/S") }, { &offline, es ("CALIDAD AL EXPORTAR") }, { &fase, es ("FASE") },
-                   { &unitaria, es ("GANANCIA UNITARIA") } };
-    }
-
-private:
-    Segmented tono;
-    Switch estricto, suavExt, enlace;
-    Segmented offline, fase;
-    Switch unitaria;
-    std::vector<std::pair<juce::Component*, juce::String>> titles;
-};
-
-// =====================================================================================
-//  Contenido (tamaño base fijo; se escala con una transformación)
 // =====================================================================================
 class Clip5Editor::Content : public juce::Component
 {
 public:
     explicit Content (Clip5Editor& e)
         : ed (e), proc (e.proc), s (e.proc.apvts),
-          entrada (s, id::entrada, es ("ENTRADA"), Knob::Style::Menta, true, [] (float v) { return formatDb (v) + " dB"; }),
-          densidad (s, id::densidad, es ("DENSIDAD"), Knob::Style::Menta, false, [] (float v) { return formatDb (v) + " dB"; }),
-          techo (s, id::techo, es ("TECHO"), Knob::Style::Marfil, false, [] (float v) { return formatDb (v) + " dB"; }),
-          suavizado (s, id::suavizado, es ("SUAVIZADO"), Knob::Style::Menta55, false, [] (float v) { return juce::String (juce::roundToInt (v)) + " %"; }),
-          salida (s, id::salida, es ("SALIDA"), Knob::Style::Menta, true, [] (float v) { return formatDb (v) + " dB"; }),
-          modos (s),
-          humedo (s, id::humedo, es ("HÚMEDO")),
-          seco (s, id::seco, es ("SECO")),
+          curva (s),
+          techo (s, id::techo, "Techo", false, [] (float v) { return formatDb (v) + " dBFS"; }, 15.0f),
+          densidad (s, id::densidad, "Densidad", false, [] (float v) { return formatDb (v) + " dB"; }, 13.0f),
+          entrada (s, id::entrada, "Entrada", true, [] (float v) { return formatDb (v) + " dB"; }, 12.0f),
+          salida (s, id::salida, "Salida", true, [] (float v) { return formatDb (v) + " dB"; }, 12.0f),
+          smooth (s, id::suavizado, {}, false, [] (float v) { return juce::String (juce::roundToInt (v)) + " %"; }),
+          procesada (s, id::humedo, "Procesada"), original (s, id::seco, "Original"),
+          enlace (s, id::enlaceMezcla, "Enlace"),
+          oversampling (s, id::calidad, { es ("1×"), es ("2×"), es ("4×"), es ("8×") }),
           display (e.proc.hub),
-          meters (e.proc.hub),
-          clock (e.proc.engine),
-          advanced (s),
-          calidad (s, id::calidad, { es ("Eco"), es ("Normal"), es ("Alta"), es ("Máx.") }),
-          presetBtn ({}, es ("Presets de fábrica y del usuario")),
+          meters (e.proc.hub, e.proc.engine), curvePanel (s), advanced (s),
           prevBtn (es ("‹"), es ("Preset anterior")), nextBtn (es ("›"), es ("Preset siguiente")),
-          aBtn ("A", es ("Estado A. Al pulsar A o B se desenlazan; los cambios aplican solo al activo.")),
-          bBtn ("B", es ("Estado B. Al pulsar A o B se desenlazan; los cambios aplican solo al activo.")),
-          copyBtn (es ("⇄"), es ("Copiar el estado activo al otro y volver a enlazar A y B")),
+          presetBtn ({}, es ("Presets de fábrica y del usuario")),
           undoBtn (es ("↶"), es ("Deshacer (Ctrl/Cmd+Z)")), redoBtn (es ("↷"), es ("Rehacer (Ctrl/Cmd+Shift+Z)")),
-          gearBtn (es ("⚙"), es ("Ajustes: escala de la interfaz y frecuencia del display")),
-          advBtn (es ("Avanzado ▴"), es ("Tono, Techo estricto, Enlace E/S, calidad al exportar, fase y ganancia unitaria")),
-          linkBtn (es ("⛓"), es ("Enlazados: crossfade de potencia constante entre HÚMEDO y SECO"))
+          aBtn ("A", es ("Estado A. Al elegir A o B se desenlazan y los cambios aplican solo al activo.")),
+          bBtn ("B", es ("Estado B. Al elegir A o B se desenlazan y los cambios aplican solo al activo.")),
+          unifyBtn (es ("Unificar A/B"), es ("Conserva el ajuste activo y vuelve a enlazar A y B.")),
+          gearBtn (es ("⚙"), es ("Ajustes: Apariencia, escala de la interfaz y frecuencia del gráfico")),
+          curveBtn (es ("Curva E/S"), es ("Transferencia estática de Densidad y la curva elegida"), true),
+          metersBtn (es ("Medidores"), es ("Picos, pico real (dBTP), LUFS y exceso máximo"), true),
+          advBtn (es ("Avanzado"), es ("Oversampling al exportar, fase, Limitador True Peak, atenuación fija, rango de Smooth y compensaciones"), true)
     {
-        entrada.setTooltip (es ("Ganancia de entrada del camino procesado (±12 dB); no afecta a SECO. Shift = ajuste fino; "
-                                "con Enlace E/S, Shift+arrastrar ajusta el offset de salida. Doble clic: escribir el valor. "
-                                "Ctrl/Cmd+clic: valor por defecto."));
-        densidad.setTooltip (es ("Ganancia no lineal instantánea: +G dB a bajo nivel que llega a 0 dB exactamente en el "
-                                 "techo. Sin ataque ni release."));
-        techo.setTooltip (es ("Nivel máximo (0 a −36 dBFS). Arrastra consigo las rodillas de Densidad y Suavizado."));
-        suavizado.setTooltip (es ("Contorno dinámico de medios-agudos (hasta −2 dB, o −3 dB en modo extendido) que solo "
-                                  "actúa cerca del techo o por encima. Doma los armónicos del recorte."));
-        salida.setTooltip (es ("Ganancia de salida (±12 dB). Con Enlace E/S es el offset sobre la compensación automática."));
-        humedo.setTooltip (es ("Nivel de la señal procesada (−∞ a +6 dB). Doble clic: 0 dB."));
-        seco.setTooltip (es ("Nivel de la señal original (antes de ENTRADA), compensada en latencia (−∞ a +6 dB)."));
-        calidad.setTooltip (es ("Calidad en tiempo real: Eco 1x, Normal 2x, Alta 4x, Máxima 8x (todas con ADAA). "
-                                "La calidad al exportar se elige en Avanzado."));
-        salida.compact = true;
-        entrada.shiftTarget = [this]() -> ParamControl* { return linkedIO() ? &salida : nullptr; };
+        curva.setTooltip (es ("Curva de recorte"));
+        techo.setTooltip (es ("Techo (−36 a 0 dBFS): referencia de la curva, Densidad y Smooth. Con el Limitador True Peak activo, también es el objetivo en dBTP."));
+        densidad.setTooltip (es ("Densidad (0 a +6 dB): realce instantáneo a bajo nivel que cae a 0 dB al llegar al Techo."));
+        entrada.setTooltip (es ("Entrada (±12 dB): cuánto se empuja la rama procesada contra el Techo. Shift+arrastrar ajusta el offset de Compensación de entrada."));
+        salida.setTooltip (es ("Salida (±12 dB): ganancia después de la mezcla paralela y antes del Limitador True Peak."));
+        smooth.setTooltip (es ("Smooth (0 a 100 %): reduce dinámicamente medios-agudos cuando la señal se acerca al Techo o lo supera."));
+        procesada.setTooltip (es ("Nivel de la rama procesada (−∞ a +6 dB). Doble clic: 0 dB."));
+        original.setTooltip (es ("Nivel de la señal original, tomada antes de Entrada y alineada en latencia (−∞ a +6 dB)."));
+        enlace.setTooltip (es ("Enlace: al mover un fader, el otro sigue un fundido de potencia constante."));
+        oversampling.setTooltip (es ("Oversampling en tiempo real (todas con ADAA). El de exportación se elige en Avanzado."));
+        smooth.valueBoxWidth = 70;
+        entrada.valueBoxWidth = salida.valueBoxWidth = 70;
+        densidad.valueBoxWidth = 76;
+        techo.valueBoxWidth = 100;
+        entrada.shiftTarget = [this]() -> ParamControl* { return proc.apvts.getRawParameterValue (id::enlaceES)->load() > 0.5f ? &salida : nullptr; };
 
         for (juce::Component* c : std::initializer_list<juce::Component*> {
-                 &display, &entrada, &densidad, &techo, &suavizado, &modos, &meters, &clock, &humedo, &seco,
-                 &salida, &calidad, &presetBtn, &prevBtn, &nextBtn, &aBtn, &bBtn, &copyBtn, &undoBtn, &redoBtn,
-                 &gearBtn, &advBtn, &linkBtn })
+                 &display, &curva, &techo, &densidad, &entrada, &salida, &smooth, &procesada, &enlace, &original, &oversampling,
+                 &prevBtn, &nextBtn, &presetBtn, &undoBtn, &redoBtn, &aBtn, &bBtn, &unifyBtn, &gearBtn, &curveBtn, &metersBtn, &advBtn, &sticker })
             addAndMakeVisible (c);
-        addChildComponent (advanced);
+        for (juce::Component* c : std::initializer_list<juce::Component*> { &meters, &curvePanel, &advanced, &appearance })
+            addChildComponent (c);
 
-        linkAtt = std::make_unique<juce::ButtonParameterAttachment> (*s.getParameter (id::enlaceMezcla), linkBtn, s.undoManager);
-        linkBtn.setClickingTogglesState (true);
-        humedo.onUserChange = [this] (float db) { if (linkBtn.getToggleState()) seco.setFromLink (complement (db)); };
-        seco.onUserChange = [this] (float db) { if (linkBtn.getToggleState()) humedo.setFromLink (complement (db)); };
+        // orden de tabulación: procesamiento → mezcla → barra superior → paneles
+        int order = 1;
+        for (juce::Component* c : std::initializer_list<juce::Component*> { &curva, &techo, &densidad, &entrada, &salida, &procesada, &enlace, &original,
+                                                                            &smooth, &oversampling, &curveBtn, &metersBtn, &advBtn, &prevBtn, &presetBtn,
+                                                                            &nextBtn, &undoBtn, &redoBtn, &aBtn, &bBtn, &unifyBtn, &gearBtn })
+            c->setExplicitFocusOrder (order++);
 
-        advBtn.onClick = [this] { toggleAdvanced(); };
+        procesada.onUserChange = [this] (float db) { if (linked()) original.setFromLink (complement (db)); };
+        original.onUserChange = [this] (float db) { if (linked()) procesada.setFromLink (complement (db)); };
+
+        curveBtn.onClick = [this] { ed.showPanel (curvePanel.isVisible() ? "" : "Curva E/S"); };
+        metersBtn.onClick = [this] { ed.showPanel (meters.isVisible() ? "" : "Medidores"); };
+        advBtn.onClick = [this] { ed.showPanel (advanced.isVisible() ? "" : "Avanzado"); };
         aBtn.onClick = [this] { proc.abSelect ('A'); };
         bBtn.onClick = [this] { proc.abSelect ('B'); };
-        copyBtn.onClick = [this] { proc.abCopyAndRelink(); };
+        unifyBtn.onClick = [this] { proc.abCopyAndRelink(); };
         undoBtn.onClick = [this] { proc.undo.undo(); };
         redoBtn.onClick = [this] { proc.undo.redo(); };
         prevBtn.onClick = [this] { stepPreset (-1); };
         nextBtn.onClick = [this] { stepPreset (1); };
         presetBtn.onClick = [this] { showPresetMenu(); };
         gearBtn.onClick = [this] { showSettingsMenu(); };
+        appearance.onClose = [this] { appearance.setVisible (false); gearBtn.grabKeyboardFocus(); };
+
+        sticker.setInterceptsMouseClicks (true, false);
+        sticker.setMouseCursor (juce::MouseCursor::PointingHandCursor);
+        sticker.onClick = [this] { ed.showPanel ("Apariencia"); };
+        updateSticker();
+    }
+
+    void updateSticker()
+    {
+        sticker.image = Themes::get().sticker (Themes::get().currentIndex());
+        sticker.setTooltip (es ("Tema: ") + pal().nombre + es (" · clic para cambiar la apariencia"));
+        sticker.repaint();
     }
 
     void paint (juce::Graphics& g) override
     {
-        g.fillAll (col::fondo);
-        // barra superior
-        auto bar = getLocalBounds().removeFromTop (48);
-        g.setColour (col::sup);
-        g.fillRect (bar);
-        g.setColour (col::lin);
-        g.drawHorizontalLine (47, 0.0f, (float) getWidth());
-        // logo: "clip" + "5" en bloque menta con muesca (motivo de marca)
-        const auto logoFont = Fonts::sans (21.0f, true);
-        g.setFont (logoFont);
-        g.setColour (col::txt);
-        const float clipW = juce::GlyphArrangement::getStringWidth (logoFont, "clip");
-        g.drawText ("clip", 16, 10, 60, 28, juce::Justification::left);
-        auto five = juce::Rectangle<float> (16.0f + clipW + 2.0f, 12.0f, 17.0f, 24.0f);
-        g.setColour (col::menta);
-        g.fillRoundedRectangle (five, 3.5f);
-        g.setColour (col::sup);
-        g.fillRect (five.getRight() - 4.0f, five.getY() + 6.0f, 4.0f, 2.0f);
-        g.setColour (col::fondo);
-        g.drawText ("5", five.translated (0, -0.5f), juce::Justification::centred);
-        // separadores, etiquetas
-        g.setColour (col::lin);
-        for (int x : sepX) g.fillRect (x, 13, 1, 22);
-        g.setFont (Fonts::sans (11.5f));
-        g.setColour (col::txt2);
-        g.drawText (abText, abLabel, juce::Justification::centredLeft);
-        g.setFont (Fonts::mono (11.0f));
-        g.drawText (cpuText, cpuLabel, juce::Justification::centredLeft);
-        // columna derecha
-        g.setColour (col::lin);
-        g.drawVerticalLine (getWidth() - 237, 48.0f, (float) getHeight());
-        // caja de mezcla
-        auto mix = mixBox.toFloat();
-        g.setColour (col::sup);
-        g.fillRoundedRectangle (mix, 8.0f);
-        g.setColour (col::lin);
-        g.drawRoundedRectangle (mix.reduced (0.5f), 8.0f, 1.0f);
-        g.setFont (Fonts::sans (10.5f, true));
-        g.setColour (col::txt2);
-        g.drawText (es ("MEZCLA · SALIDA"), mixBox.reduced (10, 8).removeFromTop (14), juce::Justification::left);
-        g.drawText (es ("MODO DE RECORTE"), modeTitle, juce::Justification::left);
+        const auto& c = pal();
+        g.fillAll (c.fondo);
+        auto card = [&] (juce::Rectangle<int> r, juce::Colour col) { g.setColour (col); g.fillRoundedRectangle (r.toFloat(), 10.0f); };
+        card (kLogo, c.sup); card (kProc, c.proc); card (kTop, c.sup); card (kMix, c.sup); card (kSmooth, c.sup); card (kOs, c.sup);
+
+        // logo: CLIP + 5 en el color de selección
+        const auto brand = Fonts::brand (34.0f);
+        const float wClip = juce::GlyphArrangement::getStringWidth (brand, "CLIP"), w5 = juce::GlyphArrangement::getStringWidth (brand, "5");
+        const float x0 = (float) kLogo.getCentreX() - (wClip + w5) * 0.5f;
+        g.setFont (brand);
+        g.setColour (c.txt);
+        g.drawText ("CLIP", juce::Rectangle<float> (x0, 18.0f, wClip + 2, 44.0f), juce::Justification::centredLeft);
+        g.setColour (c.sel);
+        g.drawText ("5", juce::Rectangle<float> (x0 + wClip, 18.0f, w5 + 4, 44.0f), juce::Justification::centredLeft);
+        g.setColour (c.txt2.withAlpha (0.35f));
+        g.drawHorizontalLine (66, 30.0f, 182.0f);
+        g.setColour (c.txt2);
+        g.setFont (Fonts::sans (8.5f, true).withExtraKerningFactor (0.25f));
+        g.drawText ("MASTERING CLIPPER", juce::Rectangle<int> (14, 70, 184, 14), juce::Justification::centred);
+
+        auto title = [&] (const juce::String& t, int x, int y) { g.setColour (c.txt); g.setFont (Fonts::brand (11.5f)); g.drawText (t, x, y, 220, 16, juce::Justification::centredLeft); };
+        title (es ("CURVA DE RECORTE"), 26, 108);
+        g.setColour (c.txt2.withAlpha (0.25f));
+        g.drawHorizontalLine (510, 26.0f, 186.0f);
+        title ("PRESET", 222, 27);
+        title (es ("MEZCLA PARALELA"), 222, 488);
+        title ("SMOOTH", 652, 488);
+        title ("OVERSAMPLING", 858, 488);
+
+        g.setColour (c.txt2);
+        g.setFont (Fonts::sans (10.5f));
+        g.drawText (abText, 640, 26, 140, 18, juce::Justification::centredRight);
+        g.drawText (osText, 858, 578, 160, 16, juce::Justification::centredLeft);
     }
 
     void resized() override
     {
-        auto r = getLocalBounds();
-        auto bar = r.removeFromTop (48).reduced (14, 10);
-        bar.removeFromLeft (76);
-        presetBtn.setBounds (bar.removeFromLeft (210));
-        bar.removeFromLeft (6);
-        prevBtn.setBounds (bar.removeFromLeft (28));
-        bar.removeFromLeft (4);
-        nextBtn.setBounds (bar.removeFromLeft (28));
-        sepX[0] = bar.getX() + 10; bar.removeFromLeft (20);
-        aBtn.setBounds (bar.removeFromLeft (28)); bar.removeFromLeft (4);
-        bBtn.setBounds (bar.removeFromLeft (28)); bar.removeFromLeft (4);
-        copyBtn.setBounds (bar.removeFromLeft (28)); bar.removeFromLeft (8);
-        abLabel = bar.removeFromLeft (80);
-        sepX[1] = bar.getX() + 4; bar.removeFromLeft (12);
-        undoBtn.setBounds (bar.removeFromLeft (28)); bar.removeFromLeft (4);
-        redoBtn.setBounds (bar.removeFromLeft (28));
-        gearBtn.setBounds (bar.removeFromRight (28));
-        bar.removeFromRight (8);
-        cpuLabel = bar.removeFromRight (88);
-        bar.removeFromRight (6);
-        calidad.setBounds (bar.removeFromRight (236));
+        curva.setBounds (26, 132, 159, 36);
+        techo.setBounds (14, 184, 184, 172);
+        densidad.setBounds (14, 364, 184, 136);
+        entrada.setBounds (22, 518, 82, 104);
+        salida.setBounds (108, 518, 82, 104);
 
-        auto right = r.removeFromRight (236).reduced (12, 12);
-        meters.setBounds (right.removeFromTop (196));
-        right.removeFromTop (10);
-        clock.setBounds (right.removeFromTop (84));
-        right.removeFromTop (10);
-        mixBox = right;
-        auto mx = right.reduced (10).withTrimmedTop (22);
-        humedo.setBounds (mx.removeFromLeft (46));
-        linkBtn.setBounds (mx.removeFromLeft (30).withSizeKeepingCentre (26, 26));
-        seco.setBounds (mx.removeFromLeft (46));
-        salida.setBounds (mx.reduced (2, 0).withSizeKeepingCentre (mx.getWidth() - 4, 110));
+        prevBtn.setBounds (282, 23, 24, 24);
+        nextBtn.setBounds (310, 23, 24, 24);
+        presetBtn.setBounds (342, 23, 290, 24);
+        undoBtn.setBounds (786, 23, 24, 24);
+        redoBtn.setBounds (814, 23, 24, 24);
+        aBtn.setBounds (842, 23, 24, 24);
+        bBtn.setBounds (870, 23, 24, 24);
+        unifyBtn.setBounds (898, 23, 92, 24);
+        gearBtn.setBounds (996, 23, 24, 24);
 
-        auto controls = r.removeFromBottom (196);
-        display.setBounds (r.reduced (12, 12).withTrimmedRight (0));
-        advanced.setBounds (display.getBounds().withTop (display.getBottom() - 170));
-        auto c = controls.reduced (12, 10);
-        for (auto* k : { &entrada, &densidad, &techo, &suavizado })
-        {
-            k->setBounds (c.removeFromLeft (112).withTrimmedTop (8));
-            c.removeFromLeft (4);
-        }
-        auto m = c.withTrimmedLeft (8);
-        modeTitle = m.removeFromTop (22).withTrimmedTop (6);
-        modos.setBounds (m.removeFromTop (100));
-        m.removeFromTop (10);
-        advBtn.setBounds (m.removeFromTop (30).withWidth (110));
+        display.setBounds (kGraph);
+        advBtn.setBounds (kGraph.getRight() - 12 - 80, kGraph.getY() + 12, 80, 24);
+        metersBtn.setBounds (advBtn.getX() - 8 - 84, kGraph.getY() + 12, 84, 24);
+        curveBtn.setBounds (metersBtn.getX() - 8 - 80, kGraph.getY() + 12, 80, 24);
+        sticker.setBounds (200, 46, 124, 124);
+
+        const juce::Rectangle<int> panel (640, 108, 374, 318);
+        meters.setBounds (panel);
+        curvePanel.setBounds (panel);
+        advanced.setBounds (panel);
+        appearance.setBounds (250, 92, 600, 470);
+
+        procesada.setBounds (222, 514, 160, 48);
+        enlace.setBounds (392, 528, 58, 28);
+        original.setBounds (460, 514, 154, 48);
+        smooth.setBounds (686, 506, 100, 112);
+        oversampling.setBounds (858, 526, 154, 30);
     }
 
     void tick()
     {
-        const float ceilDb = proc.apvts.getRawParameterValue (id::techo)->load();
-        const float dens = proc.apvts.getRawParameterValue (id::densidad)->load();
-        const int mode = (int) proc.apvts.getRawParameterValue (id::modo)->load();
+        const float ceilDb = s.getRawParameterValue (id::techo)->load();
         display.tick (ceilDb);
-        display.transfer.set (dens, mode);
-        modos.setDensity (dens);
-        meters.tick (ceilDb);
-        clock.tick();
-
-        const bool link = linkedIO();
-        salida.nameOverride = link ? es ("SALIDA (offset)") : juce::String();
-        const juce::String ab = proc.abLinked() ? es ("A = B") : es ("editando ") + juce::String::charToString (proc.abActive());
+        if (meters.isVisible()) meters.tick();
+        if (curvePanel.isVisible()) curvePanel.tick();
         aBtn.setToggleState (! proc.abLinked() && proc.abActive() == 'A', juce::dontSendNotification);
         bBtn.setToggleState (! proc.abLinked() && proc.abActive() == 'B', juce::dontSendNotification);
         undoBtn.setEnabled (proc.undo.canUndo());
         redoBtn.setEnabled (proc.undo.canRedo());
-        presetBtn.setButtonText (proc.presets.currentName());
+        presetBtn.setButtonText (proc.presets.currentName() + es ("   ⌄"));
+        curveBtn.setToggleState (curvePanel.isVisible(), juce::dontSendNotification);
+        metersBtn.setToggleState (meters.isVisible(), juce::dontSendNotification);
+        advBtn.setToggleState (advanced.isVisible(), juce::dontSendNotification);
         if (++slow % 10 == 0)
         {
-            const auto t = "CPU " + juce::String (proc.cpuLoadPercent(), 1).replaceCharacter ('.', ',') + " %";
-            if (t != cpuText || ab != abText) { cpuText = t; abText = ab; repaint (cpuLabel); repaint (abLabel); }
+            const auto ab = proc.abLinked() ? es ("A/B enlazados") : es ("Editando ") + juce::String::charToString (proc.abActive());
+            static const char* off[] = { "Igual", "1×", "2×", "4×", "8×" };
+            const int o = juce::jlimit (0, 4, (int) s.getRawParameterValue (id::calidadOffline)->load());
+            const auto os = es ("CPU ") + juce::String (proc.cpuLoadPercent(), 1).replaceCharacter ('.', ',') + es (" % · Export ") + es (off[o]);
+            if (ab != abText || os != osText) { abText = ab; osText = os; repaint (640, 20, 150, 30); repaint (850, 572, 170, 26); }
         }
     }
+
+    // ---- paneles
+    void showPanel (const juce::String& name)
+    {
+        for (Overlay* o : std::initializer_list<Overlay*> { &meters, &curvePanel, &advanced })
+            o->setVisible (o == &meters ? name == "Medidores" : (o == &curvePanel ? name == es ("Curva E/S") : name == "Avanzado"));
+        if (name == "Apariencia") { appearance.setVisible (true); appearance.toFront (true); appearance.open(); }
+        else appearance.setVisible (false);
+        if (curvePanel.isVisible()) curvePanel.tick();
+        sticker.toFront (false);
+        for (Overlay* o : std::initializer_list<Overlay*> { &meters, &curvePanel, &advanced, &appearance }) if (o->isVisible()) o->toFront (false);
+        tick();
+    }
+
+    bool closeTopPanel()
+    {
+        if (appearance.isVisible()) { appearance.cancel(); return true; }
+        if (meters.isVisible()) { meters.setVisible (false); metersBtn.grabKeyboardFocus(); tick(); return true; }
+        if (curvePanel.isVisible()) { curvePanel.setVisible (false); curveBtn.grabKeyboardFocus(); tick(); return true; }
+        if (advanced.isVisible()) { advanced.setVisible (false); advBtn.grabKeyboardFocus(); tick(); return true; }
+        return false;
+    }
+
+    // ---- sticker (imagen clicable)
+    struct Sticker : public juce::Component, public juce::SettableTooltipClient
+    {
+        juce::Image image;
+        std::function<void()> onClick;
+        void paint (juce::Graphics& g) override { g.drawImage (image, getLocalBounds().toFloat(), juce::RectanglePlacement::centred); }
+        void mouseUp (const juce::MouseEvent& e) override { if (e.mouseWasClicked() && onClick) onClick(); }
+    };
 
 private:
     Clip5Editor& ed;
     Clip5Processor& proc;
     juce::AudioProcessorValueTreeState& s;
-    Knob entrada, densidad, techo, suavizado, salida;
-    ModeSelector modos;
-    Fader humedo, seco;
+    CurveSelector curva;
+    Knob techo, densidad, entrada, salida, smooth;
+    HFader procesada, original;
+    PillToggle enlace;
+    Segmented oversampling;
     HistoryDisplay display;
-    MeterPanel meters;
-    ClipClockView clock;
-    Advanced advanced;
-    Segmented calidad;
-    FlatButton presetBtn, prevBtn, nextBtn, aBtn, bBtn, copyBtn, undoBtn, redoBtn, gearBtn, advBtn, linkBtn;
-    std::unique_ptr<juce::ButtonParameterAttachment> linkAtt;
-    juce::Rectangle<int> abLabel, calLabel, cpuLabel, mixBox, modeTitle;
-    int sepX[2] {};
-    juce::String abText, cpuText;
-    int slow = 0;
+    MetersPanel meters;
+    CurvePanel curvePanel;
+    AdvancedPanel advanced;
+    AppearancePanel appearance;
+    FlatButton prevBtn, nextBtn, presetBtn, undoBtn, redoBtn, aBtn, bBtn, unifyBtn, gearBtn, curveBtn, metersBtn, advBtn;
+    Sticker sticker;
+    juce::String abText, osText;
+    int slow = 9; // la primera llamada ya actualiza los textos
 
-    bool linkedIO() const { return proc.apvts.getRawParameterValue (id::enlaceES)->load() > 0.5f; }
+    bool linked() const { return s.getRawParameterValue (id::enlaceMezcla)->load() > 0.5f; }
 
     static float complement (float db)
     {
@@ -300,14 +259,6 @@ private:
         const float a = std::min (1.0f, juce::Decibels::decibelsToGain (db));
         const float b = std::sqrt (std::max (0.0f, 1.0f - a * a));
         return b < 0.001f ? params::kFaderMinDb : std::max (params::kFaderMinDb, juce::Decibels::gainToDecibels (b));
-    }
-
-    void toggleAdvanced()
-    {
-        const bool show = ! advanced.isVisible();
-        advanced.setVisible (show);
-        advBtn.setButtonText (show ? es ("Avanzado ▾") : es ("Avanzado ▴"));
-        advBtn.setToggleState (show, juce::dontSendNotification);
     }
 
     void stepPreset (int d)
@@ -326,26 +277,23 @@ private:
         auto& pm = proc.presets;
         juce::PopupMenu m;
         m.addSectionHeader (es ("Fábrica"));
-        for (int i = 0; i < pm.numFactory(); ++i)
-            m.addItem (1 + i, pm.factoryName (i), true, pm.currentName() == pm.factoryName (i));
+        for (int i = 0; i < pm.numFactory(); ++i) m.addItem (1 + i, pm.factoryName (i), true, pm.currentName() == pm.factoryName (i));
         const auto user = pm.userPresets();
         if (! user.isEmpty())
         {
             m.addSectionHeader (es ("Usuario"));
-            for (int i = 0; i < user.size(); ++i)
-                m.addItem (100 + i, user[i].getFileNameWithoutExtension(), true, pm.currentName() == user[i].getFileNameWithoutExtension());
+            for (int i = 0; i < user.size(); ++i) m.addItem (100 + i, user[i].getFileNameWithoutExtension(), true, pm.currentName() == user[i].getFileNameWithoutExtension());
         }
         m.addSeparator();
         m.addItem (900, es ("Guardar preset…"));
         m.addItem (901, es ("Abrir carpeta de presets"));
-        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&presetBtn),
-                         [this, user] (int r) {
-                             auto& p = proc.presets;
-                             if (r >= 1 && r < 100) { proc.undo.beginNewTransaction(); p.loadFactory (r - 1); }
-                             else if (r >= 100 && r < 900) { proc.undo.beginNewTransaction(); p.loadUser (user[r - 100]); }
-                             else if (r == 900) askPresetName();
-                             else if (r == 901) { p.userFolder().createDirectory(); p.userFolder().startAsProcess(); }
-                         });
+        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&presetBtn), [this, user] (int r) {
+            auto& p = proc.presets;
+            if (r >= 1 && r < 100) { proc.undo.beginNewTransaction(); p.loadFactory (r - 1); }
+            else if (r >= 100 && r < 900) { proc.undo.beginNewTransaction(); p.loadUser (user[r - 100]); }
+            else if (r == 900) askPresetName();
+            else if (r == 901) { p.userFolder().createDirectory(); p.userFolder().startAsProcess(); }
+        });
     }
 
     void askPresetName()
@@ -371,12 +319,14 @@ private:
             sc.addItem (pct, juce::String (pct) + " %", true, std::abs (ed.scale * 100.0f - (float) pct) < 1.0f);
         fr.addItem (1030, "30 fps", true, ed.fps == 30);
         fr.addItem (1060, "60 fps", true, ed.fps == 60);
+        m.addItem (500, es ("Apariencia…  (tema: ") + pal().nombre + ")");
         m.addSubMenu (es ("Escala de la interfaz"), sc);
-        m.addSubMenu (es ("Frecuencia del display"), fr);
+        m.addSubMenu (es ("Frecuencia del gráfico"), fr);
         m.addSeparator();
         m.addItem (2000, es ("clip5 ") + CLIP5_VERSION_STRING + es (" · latencia ") + juce::String (proc.getLatencySamples()) + es (" muestras"), false, false);
         m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&gearBtn), [this] (int r) {
-            if (r >= 75 && r <= 200) ed.setScale ((float) r / 100.0f);
+            if (r == 500) ed.showPanel ("Apariencia");
+            else if (r >= 75 && r <= 200) ed.setScale ((float) r / 100.0f);
             else if (r == 1030 || r == 1060) { ed.fps = r - 1000; ed.settings->setValue ("fps", ed.fps); ed.restartTimer(); }
         });
     }
@@ -399,24 +349,35 @@ Clip5Editor::Clip5Editor (Clip5Processor& p) : AudioProcessorEditor (p), proc (p
     content = std::make_unique<Content> (*this);
     addAndMakeVisible (*content);
     content->setBounds (0, 0, kW, kH);
+    content->setFocusContainerType (juce::Component::FocusContainerType::keyboardFocusContainer);
     addMouseListener (this, true);
     setWantsKeyboardFocus (true);
     setResizable (true, true);
     setResizeLimits ((int) (kW * 0.75f), (int) (kH * 0.75f), kW * 2, kH * 2);
     if (auto* c = getConstrainer()) c->setFixedAspectRatio ((double) kW / kH);
     setSize ((int) (kW * scale), (int) (kH * scale));
+    Themes::get().addChangeListener (this);
     content->tick();
     restartTimer();
 }
 
 Clip5Editor::~Clip5Editor()
 {
+    Themes::get().removeChangeListener (this);
     stopTimer();
     tooltips.setLookAndFeel (nullptr);
     setLookAndFeel (nullptr);
 }
 
-void Clip5Editor::paint (juce::Graphics& g) { g.fillAll (col::fondo); }
+void Clip5Editor::changeListenerCallback (juce::ChangeBroadcaster*)
+{
+    lnf.applyPalette();
+    content->updateSticker();
+    repaint();
+    content->repaint();
+}
+
+void Clip5Editor::paint (juce::Graphics& g) { g.fillAll (pal().fondo); }
 
 void Clip5Editor::resized()
 {
@@ -446,14 +407,13 @@ void Clip5Editor::timerCallback()
 }
 
 void Clip5Editor::refresh() { content->tick(); }
+void Clip5Editor::showPanel (const juce::String& name) { content->showPanel (name); }
 
-void Clip5Editor::mouseDown (const juce::MouseEvent&)
-{
-    proc.undo.beginNewTransaction();
-}
+void Clip5Editor::mouseDown (const juce::MouseEvent&) { proc.undo.beginNewTransaction(); }
 
 bool Clip5Editor::keyPressed (const juce::KeyPress& k)
 {
+    if (k == juce::KeyPress::escapeKey) return content->closeTopPanel();
     if (k == juce::KeyPress ('z', juce::ModifierKeys::commandModifier, 0)) { proc.undo.undo(); return true; }
     if (k == juce::KeyPress ('z', juce::ModifierKeys::commandModifier | juce::ModifierKeys::shiftModifier, 0)) { proc.undo.redo(); return true; }
     return false;

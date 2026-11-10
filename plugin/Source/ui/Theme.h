@@ -1,29 +1,58 @@
-// clip5 — paleta, tipografía y LookAndFeel (diseño plano y preciso, máximo 2 acentos).
+// clip5 — temas (10 paletas con roles de color + sticker), tipografías y LookAndFeel.
+// El tema es una preferencia local (archivo de ajustes), no viaja en los presets.
 #pragma once
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
 namespace clip5::ui
 {
-namespace col
+struct Palette
 {
-    const juce::Colour fondo   { 0xff121416 }; // carbón frío
-    const juce::Colour sup     { 0xff1b1f22 }; // superficie
-    const juce::Colour sup2    { 0xff22272b };
-    const juce::Colour lin     { 0xff2a3035 }; // líneas
-    const juce::Colour pista   { 0xff15181a };
-    const juce::Colour txt     { 0xffece8e1 }; // marfil
-    const juce::Colour txt2    { 0xff8c949a }; // secundario (contraste 5,4:1 sobre superficie)
-    const juce::Colour menta   { 0xff6fe3c1 }; // marca / Densidad
-    const juce::Colour coral   { 0xffff6a4d }; // recorte / alertas (solo donde hay recorte)
-    inline juce::Colour menta55() { return menta.withAlpha (0.55f); } // Suavizado
-    inline juce::Colour menta12() { return menta.withAlpha (0.12f); }
-}
+    juce::String id, nombre, tipo, base;
+    juce::Colour fondo, sup, proc, graf, txt, txt2, sel, selTxt, inFill, inBorde, outLine, outCont,
+                 dens, densTint, over, overArea, foco, perilla;
+    // gráfico de los temas híbridos (si grafBase es transparente se usan sup/txt/txt2)
+    juce::Colour grafBase, grafTxt, grafEscala, grafBoton;
+    const char* stickerData = nullptr;
+    int stickerSize = 0;
+
+    bool hybrid() const noexcept { return ! grafBase.isTransparent(); }
+    juce::Colour graphPanel() const noexcept { return hybrid() ? grafBase : graf; }
+    juce::Colour graphText() const noexcept { return hybrid() ? grafTxt : txt; }
+    juce::Colour graphScale() const noexcept { return hybrid() ? grafEscala : txt2; }
+    juce::Colour graphButton() const noexcept { return hybrid() ? grafBoton : sup; }
+};
+
+/** Temas disponibles y tema activo (compartido por todas las instancias del plugin). */
+class Themes : public juce::ChangeBroadcaster
+{
+public:
+    static Themes& get();
+    static constexpr int kCount = 10;
+
+    const Palette& palette (int i) const noexcept { return list[(size_t) juce::jlimit (0, kCount - 1, i)]; }
+    const Palette& current() const noexcept { return palette (index); }
+    int currentIndex() const noexcept { return index; }
+
+    /** persist = false: vista previa (no se guarda). */
+    void setIndex (int i, bool persist);
+    juce::Image sticker (int i);
+
+private:
+    Themes();
+    std::vector<Palette> list;
+    std::map<int, juce::Image> stickerCache;
+    int index = 6;
+    std::unique_ptr<juce::PropertiesFile> props;
+};
+
+inline const Palette& pal() { return Themes::get().current(); }
 
 struct Fonts
 {
     static juce::Font sans (float h, bool semibold = false);
     static juce::Font mono (float h);
+    static juce::Font brand (float h); // Bevan
 };
 
 class LookAndFeel : public juce::LookAndFeel_V4
@@ -35,16 +64,19 @@ public:
     void drawPopupMenuItem (juce::Graphics&, const juce::Rectangle<int>& area, bool isSeparator, bool isActive,
                             bool isHighlighted, bool isTicked, bool hasSubMenu, const juce::String& text,
                             const juce::String& shortcutKeyText, const juce::Drawable* icon, const juce::Colour* textColour) override;
+    void drawPopupMenuSectionHeader (juce::Graphics&, const juce::Rectangle<int>&, const juce::String&) override;
     juce::Font getPopupMenuFont() override { return Fonts::sans (14.0f); }
-    void drawComboBox (juce::Graphics&, int w, int h, bool down, int bx, int by, int bw, int bh, juce::ComboBox&) override;
-    juce::Font getComboBoxFont (juce::ComboBox&) override { return Fonts::sans (13.0f); }
-    void positionComboBoxText (juce::ComboBox&, juce::Label&) override;
     void drawTooltip (juce::Graphics&, const juce::String& text, int w, int h) override;
     juce::Rectangle<int> getTooltipBounds (const juce::String& tipText, juce::Point<int> screenPos, juce::Rectangle<int> parentArea) override;
     void fillTextEditorBackground (juce::Graphics&, int w, int h, juce::TextEditor&) override;
     void drawTextEditorOutline (juce::Graphics&, int w, int h, juce::TextEditor&) override;
     void drawButtonBackground (juce::Graphics&, juce::Button&, const juce::Colour&, bool over, bool down) override;
-    juce::Font getTextButtonFont (juce::TextButton&, int) override { return Fonts::sans (13.0f); }
+    juce::Font getTextButtonFont (juce::TextButton&, int) override { return Fonts::sans (12.5f); }
     void drawButtonText (juce::Graphics&, juce::TextButton&, bool over, bool down) override;
+    void drawCornerResizer (juce::Graphics&, int w, int h, bool isMouseOver, bool isMouseDragging) override;
+    void applyPalette();
 };
+
+/** Anillo de foco de teclado (solo cuando el foco llegó con Tab). */
+void drawFocusRing (juce::Graphics&, juce::Rectangle<float> r, float radius);
 } // namespace clip5::ui

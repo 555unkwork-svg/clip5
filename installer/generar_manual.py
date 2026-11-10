@@ -16,6 +16,12 @@ if os.path.exists(shot):
     b = base64.b64encode(open(shot, "rb").read()).decode()
     img = f'<img class="hero" src="data:image/png;base64,{b}" alt="Interfaz de clip5">'
 body = body.replace("<hr />", img + "<hr />", 1)
+# imágenes del manual embebidas (el HTML viaja solo dentro de los instaladores)
+import re
+def _embed(m):
+    f = os.path.normpath(os.path.join(HERE, m.group(1)))
+    return 'src="data:image/png;base64,' + base64.b64encode(open(f, "rb").read()).decode() + '"'
+body = re.sub(r'src="(\.\./docs/img/[^"]+\.png)"', _embed, body)
 
 html = f"""<!doctype html><html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -37,6 +43,7 @@ pre code {{ background: none; color: inherit; padding: 0; }}
 blockquote {{ margin: 10px 0; padding: 8px 12px; border-left: 3px solid #FF6A4D; background: #fff4f1; }}
 hr {{ border: 0; border-top: 1px solid #d9dee2; margin: 18px 0; }}
 img.hero {{ width: 100%; border-radius: 8px; margin: 14px 0 4px; }}
+img {{ max-width: 100%; border-radius: 8px; }}
 ol, ul {{ padding-left: 22px; }}
 </style></head><body>{body}</body></html>"""
 out = os.path.join(HERE, "LEEME.html")

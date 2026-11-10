@@ -46,7 +46,19 @@ juce_add_binary_data(clip5_assets
     SOURCES
         Resources/fonts/Inter-Regular.otf
         Resources/fonts/Inter-SemiBold.otf
-        Resources/fonts/JetBrainsMono-Regular.ttf)
+        Resources/fonts/JetBrainsMono-Regular.ttf
+        Resources/fonts/Bevan-Regular.ttf
+        Resources/stickers/ice.png
+        Resources/stickers/raw.png
+        Resources/stickers/violeta.png
+        Resources/stickers/pro.png
+        Resources/stickers/cafe.png
+        Resources/stickers/marfil.png
+        Resources/stickers/sonic.png
+        Resources/stickers/roseGold.png
+        Resources/stickers/c420.png
+        Resources/stickers/serum.png
+        Resources/stickers/tag5unk.png)
 
 target_sources(clip5 PRIVATE
     Source/Params.cpp
@@ -55,7 +67,7 @@ target_sources(clip5 PRIVATE
     Source/PluginEditor.cpp
     Source/ui/Controls.cpp
     Source/ui/Display.cpp
-    Source/ui/MeterPanel.cpp
+    Source/ui/Panels.cpp
     Source/ui/Theme.cpp)
 
 target_include_directories(clip5 PRIVATE Source)

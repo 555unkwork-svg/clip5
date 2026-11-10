@@ -12,6 +12,12 @@ name: Instaladores
 
 on:
   workflow_dispatch:
+    inputs:
+      plataformas:
+        description: "Instaladores a generar"
+        type: choice
+        options: [ todas, windows ]
+        default: todas
   push:
     tags: [ "v*" ]
 
@@ -33,6 +39,7 @@ jobs:
 
   macos:
     needs: version
+    if: github.event_name != 'workflow_dispatch' || inputs.plataformas == 'todas'
     timeout-minutes: 90
     runs-on: macos-latest
     env:
@@ -103,6 +110,7 @@ jobs:
 
   zip:
     needs: [ version, macos, windows ]
+    if: always() && needs.windows.result == 'success' && needs.macos.result != 'failure' && needs.macos.result != 'cancelled'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -112,9 +120,10 @@ jobs:
         run: |
           V="${{ needs.version.outputs.v }}"
           D="clip5-$V-instaladores"
-          mkdir -p "$D/Windows" "$D/macOS"
+          mkdir -p "$D/Windows"
           cp art/windows/*.exe "$D/Windows/"
-          cp art/macos/*.pkg "$D/macOS/"
+          cp art/windows/*.exe .
+          if ls art/macos/*.pkg >/dev/null 2>&1; then mkdir -p "$D/macOS"; cp art/macos/*.pkg "$D/macOS/"; fi
           cp installer/LEEME.pdf installer/LEEME.html "$D/"
           zip -qr "$D.zip" "$D"
       - uses: actions/upload-artifact@v4
@@ -129,7 +138,9 @@ jobs:
           name: clip5 ${{ needs.version.outputs.v }} (beta)
           prerelease: true
           body: |
-            Instaladores de clip5 ${{ needs.version.outputs.v }} (beta) para Windows y macOS, con el manual (LEEME.pdf).
-            Descarga **clip5-${{ needs.version.outputs.v }}-instaladores.zip** y sigue la sección 3 del manual.
-            Esta beta no está firmada: Windows y macOS muestran un aviso la primera vez (el manual explica cómo continuar).
-          files: clip5-*-instaladores.zip
+            clip5 ${{ needs.version.outputs.v }} (beta), con el manual (LEEME.pdf).
+            Windows: descarga **clip5-${{ needs.version.outputs.v }}-Windows-Setup.exe** (o el .zip, que también trae el manual).
+            Esta beta no está firmada: el sistema muestra un aviso la primera vez (el manual, sección 3, explica cómo continuar).
+          files: |
+            clip5-*-instaladores.zip
+            clip5-*-Windows-Setup.exe
