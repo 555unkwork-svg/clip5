@@ -33,6 +33,7 @@ jobs:
 
   macos:
     needs: version
+    timeout-minutes: 90
     runs-on: macos-latest
     env:
       HAS_CERT: ${{ secrets.MACOS_CERT_P12 != '' }}
@@ -76,6 +77,7 @@ jobs:
 
   windows:
     needs: version
+    timeout-minutes: 90
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
