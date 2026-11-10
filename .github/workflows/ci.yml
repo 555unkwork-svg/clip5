@@ -12,7 +12,7 @@ jobs:
       matrix:
         include:
           - name: macOS Universal (M1)
-            os: macos-14
+            os: macos-latest
             pluginval: https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_macOS.zip
             cmake_extra: -G Xcode
           - name: Windows x64
