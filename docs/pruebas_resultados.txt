@@ -1,0 +1,22 @@
+  techo estricto | Duro 1k +12            | TP 4x  -1.020 dB | TP 16x  -1.015 dB | techo  -1.00 dB
+  techo estricto | Duro 7k +12            | TP 4x  -1.020 dB | TP 16x  -1.044 dB | techo  -1.00 dB
+  techo estricto | Duro 11k +12 Eco       | TP 4x  -3.028 dB | TP 16x  -3.020 dB | techo  -3.00 dB
+  techo estricto | Firme 15k +9           | TP 4x  -0.320 dB | TP 16x  -0.361 dB | techo  -0.30 dB
+  techo estricto | Suave 19k +6           | TP 4x  -6.020 dB | TP 16x  -6.015 dB | techo  -6.00 dB
+  techo estricto | Apagado ruido +12      | TP 4x  -1.019 dB | TP 16x  -1.012 dB | techo  -1.00 dB
+  techo estricto | Paralelo seco +6       | TP 4x  -1.020 dB | TP 16x  -1.005 dB | techo  -1.00 dB
+  techo estricto | Húmedo +6 Salida +12  | TP 4x -12.020 dB | TP 16x -11.995 dB | techo -12.00 dB
+  techo estricto | Impulsos               | TP 4x  -1.027 dB | TP 16x  -1.020 dB | techo  -1.00 dB
+  techo estricto | Cuadrada 3k            | TP 4x  -0.120 dB | TP 16x  -0.138 dB | techo  -0.10 dB
+  techo estricto | Seco +6 (banda compl.) | TP 4x  -1.020 dB | TP 16x  -0.890 dB | techo  -1.00 dB
+  techo estricto | Impulsos (banda compl.) | TP 4x  -1.115 dB | TP 16x  -1.020 dB | techo  -1.00 dB
+  techo estricto | Cuadrada (banda compl.) | TP 4x  -0.120 dB | TP 16x  -0.059 dB | techo  -0.10 dB
+  alias | calidad 0 | ADAA no  | señal/alias mediana   26.4 dB | mínimo    6.6 dB
+  alias | calidad 0 | ADAA sí | señal/alias mediana   39.3 dB | mínimo   16.2 dB
+  alias | calidad 1 | ADAA no  | señal/alias mediana   40.6 dB | mínimo   32.3 dB
+  alias | calidad 1 | ADAA sí | señal/alias mediana   61.0 dB | mínimo   54.0 dB
+  alias | calidad 2 | ADAA no  | señal/alias mediana   52.8 dB | mínimo   45.4 dB
+  alias | calidad 2 | ADAA sí | señal/alias mediana   78.2 dB | mínimo   67.4 dB
+  alias | calidad 3 | ADAA no  | señal/alias mediana   65.0 dB | mínimo   55.7 dB
+  alias | calidad 3 | ADAA sí | señal/alias mediana   94.8 dB | mínimo   81.6 dB
+All tests passed (7257822 assertions in 20 test cases)
