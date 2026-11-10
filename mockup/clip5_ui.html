@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>clip5 — mockup de interfaz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --fondo:#121416; --sup:#1B1F22; --sup2:#22272B; --lin:#2A3035;
+  --txt:#ECE8E1; --txt2:#8C949A; --menta:#6FE3C1; --menta55:rgba(111,227,193,.55);
+  --menta12:rgba(111,227,193,.12); --coral:#FF6A4D; --coral30:rgba(255,106,77,.30);
+  --num:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#0B0C0D;color:var(--txt);font-family:Inter,system-ui,sans-serif;font-size:12px;height:100%}
+body{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:16px;gap:12px;overflow-x:hidden}
+.nota{color:var(--txt2);max-width:1040px;width:100%;font-size:12px;line-height:1.5}
+.nota b{color:var(--txt);font-weight:600}
+#marco{width:100%;max-width:1040px;position:relative}
+#plugin{width:1040px;height:640px;background:var(--fondo);border:1px solid var(--lin);border-radius:10px;
+  transform-origin:0 0;position:absolute;left:0;top:0;display:grid;
+  grid-template-columns:minmax(0,1fr) 236px;grid-template-rows:48px 1fr 196px;overflow:hidden;user-select:none}
+.num{font-family:var(--num);font-variant-numeric:tabular-nums}
+
+/* barra superior */
+#barra{grid-column:1/3;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--lin);background:var(--sup)}
+.logo{display:flex;align-items:baseline;gap:0;font-weight:700;font-size:19px;letter-spacing:-.5px;margin-right:8px}
+.logo .cinco{position:relative;color:var(--fondo);background:var(--menta);border-radius:3px;padding:0 4px;margin-left:2px;line-height:1.15}
+.logo .cinco::after{content:"";position:absolute;right:-1px;top:6px;width:5px;height:2px;background:var(--sup)}
+.btn{background:transparent;border:1px solid var(--lin);color:var(--txt);border-radius:6px;height:28px;padding:0 10px;
+  font:inherit;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--txt2)}
+.btn.on{border-color:var(--menta);color:var(--menta)}
+.btn.ico{width:28px;padding:0;justify-content:center}
+.grupo{display:flex;gap:4px;align-items:center}
+.sep{width:1px;height:22px;background:var(--lin);margin:0 4px}
+.preset{min-width:200px;justify-content:space-between}
+.etq{color:var(--txt2);font-size:11px}
+.espacio{flex:1}
+select.btn{appearance:none;padding-right:24px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238C949A' fill='none' stroke-width='1.4'/%3E%3C/svg%3E") no-repeat right 8px center}
+select.btn option{background:var(--sup);color:var(--txt)}
+.ab-estado{font-size:10.5px;color:var(--txt2);min-width:62px}
+
+/* display */
+#display{position:relative;margin:12px 0 0 12px;border:1px solid var(--lin);border-radius:8px;background:var(--sup);overflow:hidden}
+#display canvas{width:100%;height:100%;display:block}
+.leyenda{position:absolute;left:44px;top:9px;display:flex;gap:14px;font-size:11px;color:var(--txt2)}
+.leyenda i{display:inline-block;width:10px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+#transfer{position:absolute;right:10px;top:10px;width:150px;height:150px;background:rgba(18,20,22,.88);border:1px solid var(--lin);border-radius:6px}
+#transfer .t{position:absolute;left:8px;top:6px;font-size:10px;color:var(--txt2)}
+.techo-etq{position:absolute;left:12px;font-size:10.5px;color:var(--txt2)}
+
+/* fila de controles */
+#controles{display:flex;align-items:center;gap:6px;padding:10px 12px 12px 12px}
+.perilla{width:108px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:ns-resize}
+.perilla svg{width:92px;height:92px}
+.perilla .nom{font-size:11px;font-weight:600;letter-spacing:.9px;color:var(--txt2)}
+.perilla .val{font-size:13px;color:var(--txt)}
+.perilla.foco .nom{color:var(--txt)}
+.modos{margin-left:auto;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.modos .nom{font-size:11px;font-weight:600;letter-spacing:.9px;color:var(--txt2)}
+.modos .fila{display:flex;gap:6px}
+.modo{width:68px;height:82px;border:1px solid var(--lin);border-radius:8px;background:transparent;color:var(--txt2);
+  cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font:inherit;font-size:11.5px}
+.modo svg{width:46px;height:46px}
+.modo.on{border-color:var(--menta);color:var(--txt);background:var(--menta12)}
+.avz{margin-top:4px}
+
+/* columna derecha */
+#derecha{grid-row:2/4;grid-column:2;border-left:1px solid var(--lin);padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--fondo)}
+.caja{border:1px solid var(--lin);border-radius:8px;background:var(--sup);padding:10px}
+.caja h4{font-size:10.5px;font-weight:600;letter-spacing:.9px;color:var(--txt2);margin-bottom:8px;display:flex;justify-content:space-between}
+.medidores{display:flex;gap:8px;height:170px}
+.mgrupo{display:flex;flex-direction:column;align-items:center;gap:4px}
+.barras{display:flex;gap:3px;flex:1}
+.barra{width:9px;background:#15181A;border-radius:2px;position:relative;overflow:hidden}
+.barra .rel{position:absolute;bottom:0;left:0;right:0;background:var(--txt2);border-radius:2px}
+.barra.out .rel{background:var(--txt)}
+.barra .pk{position:absolute;left:0;right:0;height:2px;background:var(--txt)}
+.barra .techo{position:absolute;left:-2px;right:-2px;height:1px;background:var(--coral)}
+.escala{display:flex;flex-direction:column;justify-content:space-between;font-size:9px;color:var(--txt2);padding:1px 0 14px}
+.lecturas{flex:1;display:grid;grid-template-columns:auto auto auto;gap:3px 6px;align-content:start;font-size:10.5px}
+.lecturas .k{color:var(--txt2)}
+.lecturas .v{text-align:right}
+.lecturas .h{color:var(--txt2);font-size:9.5px;text-align:right}
+#reloj{cursor:pointer}
+#reloj .grande{font-size:22px;color:var(--coral)}
+#reloj .sub{color:var(--txt2);font-size:10.5px;margin-top:2px}
+.mezcla{display:flex;gap:6px;align-items:stretch}
+.fader{display:flex;flex-direction:column;align-items:center;gap:4px;width:46px}
+.fader .riel{width:6px;flex:1;min-height:96px;background:#15181A;border-radius:3px;position:relative;cursor:ns-resize}
+.fader .relleno{position:absolute;bottom:0;left:0;right:0;border-radius:3px;background:var(--menta55)}
+.fader .tope{position:absolute;left:-9px;width:24px;height:10px;border-radius:3px;background:var(--txt);transform:translateY(50%)}
+.fader .nom{font-size:10.5px;font-weight:600;letter-spacing:.7px;color:var(--txt2)}
+.fader .val{font-size:11px}
+.enlace{align-self:center;width:24px;height:24px;border-radius:6px;border:1px solid var(--lin);background:transparent;color:var(--txt2);cursor:pointer;display:flex;align-items:center;justify-content:center}
+.enlace.on{color:var(--menta);border-color:var(--menta)}
+.salida{flex:1;display:flex;flex-direction:column;align-items:center;cursor:ns-resize}
+.salida{justify-content:center}.salida svg{width:64px;height:64px}
+
+/* panel avanzado */
+#avanzado{position:absolute;left:12px;right:248px;bottom:196px;background:var(--sup);border:1px solid var(--lin);border-radius:8px 8px 0 0;
+  padding:14px 16px;display:none;grid-template-columns:repeat(5,1fr);gap:18px;box-shadow:0 -1px 0 var(--lin)}
+#avanzado.abierto{display:grid}
+#avanzado h5{font-size:10.5px;font-weight:600;letter-spacing:.9px;color:var(--txt2);margin-bottom:8px}
+.seg{display:flex;border:1px solid var(--lin);border-radius:6px;overflow:hidden}
+.seg button{flex:1;background:transparent;border:0;color:var(--txt2);font:inherit;font-size:11px;padding:6px 4px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--lin)}
+.seg button.on{background:var(--menta12);color:var(--menta)}
+.interruptor{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:11.5px}
+.interruptor .pista{width:30px;height:16px;border-radius:8px;background:var(--lin);position:relative;transition:.15s}
+.interruptor .pista::after{content:"";position:absolute;left:2px;top:2px;width:12px;height:12px;border-radius:6px;background:var(--txt2);transition:.15s}
+.interruptor.on .pista{background:var(--menta55)}
+.interruptor.on .pista::after{left:16px;background:var(--txt)}
+.ayuda{color:var(--txt2);font-size:10.5px;line-height:1.4;margin-top:6px}
+
+/* tooltip */
+#tip{position:fixed;pointer-events:none;background:#0B0C0D;border:1px solid var(--lin);color:var(--txt);padding:6px 8px;border-radius:6px;font-size:11px;max-width:240px;line-height:1.35;display:none;z-index:9}
+#editor{position:fixed;display:none;z-index:10;background:var(--sup2);border:1px solid var(--menta);color:var(--txt);font-family:var(--num);font-size:13px;width:90px;padding:4px 6px;border-radius:5px;outline:none;text-align:center}
+</style>
+</head>
+<body>
+<p class="nota"><b>Mockup interactivo de clip5 (fase 1).</b> Arrastrá las perillas en vertical (Shift = ajuste fino, Ctrl/Cmd+clic = valor por defecto, doble clic = escribir el valor). Las curvas del modo y de transferencia usan las mismas fórmulas que el prototipo en Python. La señal del display es simulada.</p>
+<div id="marco">
+<div id="plugin">
+  <!-- ============ BARRA SUPERIOR ============ -->
+  <div id="barra">
+    <div class="logo" title="clip5">clip<span class="cinco">5</span></div>
+    <button class="btn preset" data-tip="Presets de fábrica y del usuario">
+      <span id="presetNom">Mastering pop</span>
+      <svg width="10" height="6"><path d="M1 1l4 4 4-4" stroke="#8C949A" fill="none" stroke-width="1.4"/></svg>
+    </button>
+    <div class="grupo">
+      <button class="btn ico" data-tip="Preset anterior">‹</button><button class="btn ico" data-tip="Preset siguiente">›</button>
+    </div>
+    <div class="sep"></div>
+    <div class="grupo">
+      <button class="btn ico" id="btnA" data-tip="Estado A. Al pulsarlo, A y B se desenlazan">A</button>
+      <button class="btn ico" id="btnB" data-tip="Estado B. Al pulsarlo, A y B se desenlazan">B</button>
+      <button class="btn ico" id="btnCopiar" data-tip="Copiar el estado activo al otro y volver a enlazar">⇄</button>
+      <span class="ab-estado" id="abEstado">A = B</span>
+    </div>
+    <div class="sep"></div>
+    <div class="grupo">
+      <button class="btn ico" data-tip="Deshacer (Ctrl/Cmd+Z)">↶</button>
+      <button class="btn ico" data-tip="Rehacer (Ctrl/Cmd+Shift+Z)">↷</button>
+    </div>
+    <div class="espacio"></div>
+    <span class="etq">Calidad</span>
+    <select class="btn" id="calidad" data-tip="Calidad en tiempo real. La calidad de exportación se ajusta en Avanzado">
+      <option>Eco · 1x</option><option selected>Normal · 2x</option><option>Alta · 4x</option><option>Máxima · 8x</option>
+    </select>
+    <span class="etq num" id="cpu" data-tip="Consumo estimado de esta instancia">CPU 0,4 %</span>
+    <button class="btn ico" data-tip="Ajustes: escala de la interfaz (75–200 %), frecuencia del display (30/60 fps), atajos">⚙</button>
+  </div>
+
+  <!-- ============ DISPLAY ============ -->
+  <div id="display">
+    <canvas id="hist"></canvas>
+    <div class="leyenda">
+      <span><i style="background:#ECE8E1"></i>Salida</span>
+      <span><i style="background:#FF6A4D"></i>Recorte</span>
+      <span><i style="background:#6FE3C1"></i>Densidad</span>
+      <span><i style="background:#8C949A;opacity:.6"></i>Entrada</span>
+    </div>
+    <div id="transfer" data-tip="Curva de transferencia actual: entrada vs salida (dB re techo). Se actualiza con los controles">
+      <span class="t">Transferencia</span>
+      <canvas id="tc" width="300" height="300" style="width:150px;height:150px"></canvas>
+    </div>
+  </div>
+
+  <!-- ============ CONTROLES ============ -->
+  <div id="controles">
+    <div class="perilla" data-p="entrada"></div>
+    <div class="perilla" data-p="densidad"></div>
+    <div class="perilla" data-p="techo"></div>
+    <div class="perilla" data-p="suavizado"></div>
+    <div class="modos">
+      <span class="nom">MODO DE RECORTE</span>
+      <div class="fila" id="modos"></div>
+      <button class="btn avz" id="btnAvz" data-tip="Tono, Techo estricto, Enlace E/S, calidad de exportación, ganancia unitaria">Avanzado ▴</button>
+    </div>
+  </div>
+
+  <!-- ============ DERECHA ============ -->
+  <div id="derecha">
+    <div class="caja">
+      <h4><span>ENTRADA · SALIDA</span><span class="num" style="font-weight:400">dBFS</span></h4>
+      <div class="medidores">
+        <div class="escala num"><span>0</span><span>−6</span><span>−12</span><span>−24</span><span>−48</span></div>
+        <div class="mgrupo"><div class="barras"><div class="barra" id="mi0"><div class="rel"></div><div class="pk"></div></div><div class="barra" id="mi1"><div class="rel"></div><div class="pk"></div></div></div><span class="etq">E</span></div>
+        <div class="mgrupo"><div class="barras"><div class="barra out" id="mo0"><div class="rel"></div><div class="pk"></div><div class="techo"></div></div><div class="barra out" id="mo1"><div class="rel"></div><div class="pk"></div><div class="techo"></div></div></div><span class="etq">S</span></div>
+        <div class="lecturas num">
+          <span></span><span class="h">E</span><span class="h">S</span>
+          <span class="k">Pico</span><span class="v" id="lPkI">−3,1</span><span class="v" id="lPkO">−1,0</span>
+          <span class="k">TP</span><span class="v" id="lTpI">−2,8</span><span class="v" id="lTpO">−1,0</span>
+          <span class="k">LUFS M</span><span class="v" id="lMI">−12,4</span><span class="v" id="lMO">−9,8</span>
+          <span class="k">LUFS S</span><span class="v" id="lSI">−12,9</span><span class="v" id="lSO">−10,1</span>
+          <span class="k">LUFS I</span><span class="v" id="lII">−13,2</span><span class="v" id="lIO">−10,4</span>
+          <span class="k" style="margin-top:6px">Recorte</span><span></span><span class="v" id="lRec" style="margin-top:6px;color:var(--coral)">1,8</span>
+          <span class="k">Densidad</span><span></span><span class="v" id="lDen" style="color:var(--menta)">+2,1</span>
+        </div>
+      </div>
+    </div>
+    <div class="caja" id="reloj" data-tip="Recorte máximo y momento en que ocurrió (posición del host). Clic para reiniciar">
+      <h4><span>RELOJ DE RECORTE</span><span style="font-weight:400;letter-spacing:0">clic: reiniciar</span></h4>
+      <div class="num grande" id="rMax">−0,0 dB</div>
+      <div class="sub num" id="rPos">en 00:00</div>
+    </div>
+    <div class="caja" style="flex:1;display:flex;flex-direction:column">
+      <h4><span>MEZCLA · SALIDA</span></h4>
+      <div class="mezcla" style="flex:1">
+        <div class="fader" id="fHum" data-tip="Nivel de la señal procesada (−∞ a +6 dB)"><span class="val num">0,0</span><div class="riel"><div class="relleno"></div><div class="tope"></div></div><span class="nom">HÚMEDO</span></div>
+        <button class="enlace on" id="enlMez" data-tip="Enlazados: crossfade de potencia constante entre HÚMEDO y SECO">⛓</button>
+        <div class="fader" id="fSec" data-tip="Nivel de la señal sin procesar, compensada en latencia (−∞ a +6 dB)"><span class="val num">−∞</span><div class="riel"><div class="relleno"></div><div class="tope"></div></div><span class="nom">SECO</span></div>
+        <div class="salida perilla" data-p="salida"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ AVANZADO ============ -->
+  <div id="avanzado">
+    <div>
+      <h5>TONO</h5>
+      <div class="seg" id="tono"><button class="on">Plano</button><button>Seda</button><button>Terciopelo</button></div>
+      <p class="ayuda">Caída suave de agudos incorporada al filtro de decimación: sin costo de CPU.</p>
+    </div>
+    <div>
+      <h5>TECHO ESTRICTO</h5>
+      <div class="interruptor on" data-tip="Recorte final a tasa base: la salida nunca supera el techo (true peak verificado)"><span class="pista"></span><span>Activado</span></div>
+      <p class="ayuda">Elimina los sobretiros que genera la decimación.</p>
+    </div>
+    <div>
+      <h5>ENLACE E/S</h5>
+      <div class="interruptor" data-tip="Subir la entrada baja la salida en la misma cantidad"><span class="pista"></span><span>Desactivado</span></div>
+      <p class="ayuda">Offset: <span class="num">+0,0 dB</span> (Shift+arrastrar ENTRADA o SALIDA).</p>
+    </div>
+    <div>
+      <h5>CALIDAD AL EXPORTAR</h5>
+      <div class="seg" id="calOff"><button>Igual</button><button>Alta</button><button class="on">Máxima</button></div>
+      <p class="ayuda">Se usa al renderizar sin tiempo real.</p>
+    </div>
+    <div>
+      <h5>GANANCIA UNITARIA</h5>
+      <div class="interruptor on" data-tip="Resta la ganancia nominal de Densidad para comparar a igual volumen"><span class="pista"></span><span>Activada</span></div>
+      <p class="ayuda">Compensa <span class="num" id="gu">−2,0 dB</span> en la salida.</p>
+    </div>
+  </div>
+</div>
+</div>
+<div id="tip"></div>
+<input id="editor" />
+
+<script>
+"use strict";
+/* ===================== curvas (mismas fórmulas que proto/clip5_curvas.py) ===================== */
+const MODOS = {Suave:[0.50,0.70], Firme:[0.16,0.16], Duro:[0,0], Apagado:null};
+function hPot2(u){ u=Math.min(Math.max(u,0),1); const w=u*u; return (1-w)*(1-w); }
+function densidad(u,G){ const g0=Math.pow(10,G/20), a=Math.abs(u); return a<1 ? u*(1+(g0-1)*hPot2(a)) : u; }
+function rodilla(v,w){ if(w<=0) return Math.min(v,1); const a=1-w/2; if(v<=a) return v;
+  const t=Math.min((v-a)/w,1); return a+w*(t-t*t*t+0.5*t*t*t*t); }
+function recorte(v,m){ const p=MODOS[m]; if(!p) return v; return v>=0 ? rodilla(v,p[0]) : -rodilla(-v,p[1]); }
+function nucleo(u,G,m){ return recorte(densidad(u,G),m); }
+
+/* ===================== estado ===================== */
+const P = {
+  entrada:{nom:"ENTRADA",min:-12,max:12,def:0,v:2.0,u:"dB",tip:"Ganancia de entrada (±12 dB). Con Enlace E/S, la salida se mueve en sentido inverso"},
+  densidad:{nom:"DENSIDAD",min:0,max:6,def:0,v:2.0,u:"dB",tip:"Ganancia no lineal instantánea: +G dB a bajo nivel, 0 dB al llegar al techo. Sin ataque ni release"},
+  techo:{nom:"TECHO",min:-36,max:0,def:-1,v:-1.0,u:"dB",tip:"Nivel máximo de salida (0 a −36 dBFS). Arrastra consigo las rodillas de Densidad y Suavizado"},
+  suavizado:{nom:"SUAVIZADO",min:0,max:100,def:0,v:40,u:"%",tip:"Contorno dinámico de medios-agudos (hasta −2 dB) que actúa solo cerca del techo o por encima"},
+  salida:{nom:"SALIDA",min:-12,max:12,def:0,v:0,u:"dB",tip:"Ganancia de salida (±12 dB)",chico:true},
+};
+let modo="Firme";
+const fmt=(v,d=1)=>(v<0?"−":(v>0?"+":""))+Math.abs(v).toFixed(d).replace(".",",");
+const fmtV=k=>k==="suavizado"? Math.round(P[k].v)+" %" : (k==="techo"? fmt(P[k].v)+" dB" : fmt(P[k].v)+" dB");
+
+/* ===================== perillas ===================== */
+const NS="http://www.w3.org/2000/svg";
+function arco(cx,cy,r,a0,a1){ const p=a=>[cx+r*Math.cos(a),cy+r*Math.sin(a)];
+  const [x0,y0]=p(a0),[x1,y1]=p(a1); const large=(a1-a0)>Math.PI?1:0;
+  return `M${x0.toFixed(2)} ${y0.toFixed(2)} A${r} ${r} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`; }
+const A0=Math.PI*0.75, A1=Math.PI*2.25;
+function pintarPerilla(el){
+  const k=el.dataset.p, p=P[k], n=(p.v-p.min)/(p.max-p.min);
+  const bip = p.min<0 && p.max>0 && k!=="techo";
+  const aN = A0+(A1-A0)*n, aC = bip? A0+(A1-A0)*((0-p.min)/(p.max-p.min)) : A0;
+  const r=38, cx=48, cy=50;
+  const col = k==="suavizado" ? "rgba(111,227,193,.55)" : (k==="techo"? "#ECE8E1" : "#6FE3C1");
+  const ind=[cx+(r-12)*Math.cos(aN), cy+(r-12)*Math.sin(aN)], ind2=[cx+(r-24)*Math.cos(aN), cy+(r-24)*Math.sin(aN)];
+  el.querySelector("svg").innerHTML =
+    `<path d="${arco(cx,cy,r,A0,A1)}" stroke="#2A3035" stroke-width="4" fill="none" stroke-linecap="round"/>`+
+    (Math.abs(aN-aC)>0.001?`<path d="${arco(cx,cy,r,Math.min(aN,aC),Math.max(aN,aC))}" stroke="${col}" stroke-width="4" fill="none" stroke-linecap="round"/>`:"")+
+    `<circle cx="${cx}" cy="${cy}" r="${r-8}" fill="#1B1F22" stroke="#2A3035"/>`+
+    `<line x1="${ind2[0]}" y1="${ind2[1]}" x2="${ind[0]}" y2="${ind[1]}" stroke="#ECE8E1" stroke-width="2.4" stroke-linecap="round"/>`;
+  el.querySelector(".val").textContent=fmtV(k);
+}
+document.querySelectorAll(".perilla").forEach(el=>{
+  const k=el.dataset.p, p=P[k];
+  el.innerHTML=`<svg viewBox="0 0 96 96"></svg><span class="val num"></span><span class="nom">${p.nom}</span>`;
+  el.dataset.tip=p.tip;
+  pintarPerilla(el);
+  let y0=null, v0=0;
+  el.addEventListener("pointerdown",e=>{
+    if(e.ctrlKey||e.metaKey){ p.v=p.def; actualizar(); return; }
+    y0=e.clientY; v0=p.v; el.setPointerCapture(e.pointerId); el.classList.add("foco");
+  });
+  el.addEventListener("pointermove",e=>{ if(y0===null) return;
+    const fino=e.shiftKey?0.1:1, rango=p.max-p.min;
+    p.v=Math.min(p.max,Math.max(p.min, v0+(y0-e.clientY)/(200*escala)*rango*fino)); actualizar(); });
+  el.addEventListener("pointerup",()=>{ y0=null; el.classList.remove("foco"); });
+  el.addEventListener("dblclick",e=>editar(el,k,e));
+});
+function editar(el,k,e){
+  const ed=document.getElementById("editor"), r=el.getBoundingClientRect();
+  ed.style.left=(r.left+r.width/2-45)+"px"; ed.style.top=(r.top+r.height/2-14)+"px"; ed.style.display="block";
+  ed.value=P[k].v.toFixed(1).replace(".",","); ed.focus(); ed.select();
+  const fin=ok=>{ if(ok){ const v=parseFloat(ed.value.replace(",",".").replace("−","-")); if(!isNaN(v)){P[k].v=Math.min(P[k].max,Math.max(P[k].min,v));} }
+    ed.style.display="none"; ed.onkeydown=null; ed.onblur=null; actualizar(); };
+  ed.onkeydown=ev=>{ if(ev.key==="Enter") fin(true); if(ev.key==="Escape") fin(false); };
+  ed.onblur=()=>fin(true);
+}
+
+/* ===================== modos con mini-curva ===================== */
+const cont=document.getElementById("modos");
+const TIP_MODO={Suave:"Rodilla amplia y leve asimetría: agrega armónicos pares",Firme:"Rodilla estrecha y simétrica: armónicos impares",
+  Duro:"Lineal hasta el techo y recorte duro",Apagado:"Sin recorte: solo Densidad y Suavizado, máxima transparencia"};
+Object.keys(MODOS).forEach(m=>{
+  const b=document.createElement("button"); b.className="modo"+(m===modo?" on":""); b.dataset.tip=TIP_MODO[m];
+  b.innerHTML=`<svg viewBox="0 0 46 46"></svg><span>${m}</span>`;
+  b.onclick=()=>{ modo=m; document.querySelectorAll(".modo").forEach(x=>x.classList.toggle("on",x===b)); actualizar(); };
+  cont.appendChild(b);
+});
+function pintarModos(){
+  document.querySelectorAll(".modo").forEach(b=>{
+    const m=b.querySelector("span").textContent; let d="";
+    for(let i=0;i<=46;i++){ const u=-1.6+3.2*i/46, y=nucleo(u,P.densidad.v,m);
+      d+=(i?"L":"M")+(3+40*i/46).toFixed(1)+" "+(23-Math.max(-1.6,Math.min(1.6,y))*12.5).toFixed(1); }
+    const on=b.classList.contains("on");
+    b.querySelector("svg").innerHTML=
+      `<line x1="3" y1="10.5" x2="43" y2="10.5" stroke="#2A3035"/><line x1="3" y1="35.5" x2="43" y2="35.5" stroke="#2A3035"/>`+
+      `<path d="${d}" fill="none" stroke="${on?"#6FE3C1":"#8C949A"}" stroke-width="1.8"/>`;
+  });
+}
+
+/* ===================== curva de transferencia (dB) ===================== */
+function pintarTransfer(){
+  const c=document.getElementById("tc"), g=c.getContext("2d"), W=300, H=300, m=24;
+  g.clearRect(0,0,W,H);
+  const X=d=>m+(d+36)/42*(W-2*m), Y=d=>H-m-(d+36)/42*(H-2*m);    // eje: −36 … +6 dB re techo
+  g.strokeStyle="#2A3035"; g.lineWidth=1;
+  for(const d of [-30,-18,-6]){ g.beginPath(); g.moveTo(X(d),Y(-36)); g.lineTo(X(d),Y(6)); g.moveTo(X(-36),Y(d)); g.lineTo(X(6),Y(d)); g.stroke(); }
+  g.setLineDash([4,4]); g.strokeStyle="#8C949A"; g.beginPath(); g.moveTo(X(-36),Y(-36)); g.lineTo(X(6),Y(6)); g.stroke(); g.setLineDash([]);
+  g.strokeStyle="#FF6A4D"; g.lineWidth=1.5; g.beginPath(); g.moveTo(X(-36),Y(0)); g.lineTo(X(6),Y(0)); g.stroke();
+  g.strokeStyle="#6FE3C1"; g.lineWidth=3.2; g.beginPath();
+  for(let i=0;i<=200;i++){ const din=-36+42*i/200, y=nucleo(Math.pow(10,din/20),P.densidad.v,modo);
+    const dout=20*Math.log10(Math.max(y,1e-6)); i?g.lineTo(X(din),Y(Math.min(dout,6))):g.moveTo(X(din),Y(dout)); }
+  g.stroke();
+  g.fillStyle="#8C949A"; g.font="18px JetBrains Mono"; g.fillText("0",X(6)-14,Y(0)-6);
+}
+
+/* ===================== display de historial ===================== */
+const cv=document.getElementById("hist"); const gx=cv.getContext("2d");
+const N=420; const hist=[]; let t=0, rMax=0, rT=0, pkI=-60, pkO=-60;
+function senal(){ // envolvente musical simulada (dBFS de pico por columna)
+  t++; const beat=t%24, kick=beat<3?6-beat*2:0, snare=(t%48>=24&&t%48<26)?4:0;
+  const base=-15+3*Math.sin(t/90)+2*Math.sin(t/23);
+  return base+kick+snare+(Math.random()*2.6-1.3);
+}
+function paso(){
+  const lin=senal()+P.entrada.v, C=P.techo.v, G=P.densidad.v;
+  const u=Math.pow(10,(lin-C)/20);
+  const pre=densidad(u,G), out=nucleo(u,G,modo);
+  const dPre=C+20*Math.log10(pre), dOut=C+20*Math.log10(Math.max(out,1e-6));
+  const rec=Math.max(0,dPre-Math.max(dOut,C)) * (modo==="Apagado"?0:1);
+  const den=Math.max(0,20*Math.log10(pre/u));
+  hist.push({lin,dPre,dOut,rec,den}); if(hist.length>N) hist.shift();
+  if(rec>rMax){ rMax=rec; rT=t/30; }
+  return {lin,dOut,rec,den};
+}
+function dibujar(){
+  const r={width:cv.offsetWidth,height:cv.offsetHeight}, dpr=2; if(cv.width!==Math.round(r.width*dpr)){ cv.width=Math.round(r.width*dpr); cv.height=Math.round(r.height*dpr); }
+  const W=cv.width, H=cv.height; gx.clearRect(0,0,W,H);
+  const top=30, bot=26, R=30, Y=d=>top*dpr+(-d/R)*(H-(top+bot)*dpr); // 0 dBFS arriba, −30 abajo
+  // rejilla
+  gx.strokeStyle="#2A3035"; gx.lineWidth=1; gx.fillStyle="#8C949A"; gx.font=`${10*dpr}px JetBrains Mono`;
+  for(const d of [0,-6,-12,-18,-24,-30]){ gx.beginPath(); gx.moveTo(0,Y(d)); gx.lineTo(W,Y(d)); gx.stroke(); gx.fillText(d===0?"0":fmt(d,0),6*dpr,Y(d)-3*dpr); }
+  const dx=W/N, x0=W-hist.length*dx;
+  // entrada (gris)
+  gx.fillStyle="rgba(140,148,154,.13)"; gx.beginPath(); gx.moveTo(x0,H);
+  hist.forEach((h,i)=>gx.lineTo(x0+i*dx,Y(Math.max(-30,Math.min(h.lin,0))))); gx.lineTo(W,H); gx.fill();
+  // salida (marfil)
+  gx.fillStyle="rgba(236,232,225,.07)"; gx.strokeStyle="#ECE8E1"; gx.lineWidth=1.4*dpr; gx.beginPath(); gx.moveTo(x0,H);
+  hist.forEach((h,i)=>gx.lineTo(x0+i*dx,Y(h.dOut))); gx.lineTo(W,H); gx.fill();
+  gx.beginPath(); hist.forEach((h,i)=>i?gx.lineTo(x0+i*dx,Y(h.dOut)):gx.moveTo(x0,Y(h.dOut))); gx.stroke();
+  // zona recortada (coral) entre el techo y el nivel pre-recorte
+  const C=P.techo.v; gx.fillStyle="rgba(255,106,77,.55)";
+  hist.forEach((h,i)=>{ if(h.rec>0.05){ gx.fillRect(x0+i*dx,Y(Math.min(h.dPre,4)),dx+0.5,Y(C)-Y(Math.min(h.dPre,4))); }});
+  // densidad (menta) como banda inferior proporcional a la ganancia aplicada
+  gx.fillStyle="rgba(111,227,193,.75)";
+  hist.forEach((h,i)=>{ const hh=h.den/6*18*dpr; gx.fillRect(x0+i*dx,H-hh-2*dpr,dx+0.5,hh); });
+  // línea de techo
+  gx.strokeStyle="#FF6A4D"; gx.lineWidth=1.2*dpr; gx.beginPath(); gx.moveTo(0,Y(C)); gx.lineTo(W,Y(C)); gx.stroke();
+  gx.fillStyle="#FF6A4D"; gx.font=`${10.5*dpr}px Inter`; gx.fillText("techo "+fmt(C)+" dB",W-250*dpr,Y(C)+14*dpr);
+}
+function medidor(id,db,pk){ const el=document.getElementById(id), n=Math.max(0,Math.min(1,(db+48)/48));
+  el.querySelector(".rel").style.height=(n*100)+"%"; el.querySelector(".pk").style.bottom=(Math.max(0,(pk+48)/48)*100)+"%";
+  const te=el.querySelector(".techo"); if(te) te.style.bottom=((P.techo.v+48)/48*100)+"%"; }
+let cuadro=0;
+function bucle(){
+  let s; for(let i=0;i<2;i++) s=paso();
+  const sal=s.dOut+P.salida.v;
+  pkI=Math.max(pkI-0.25,s.lin); pkO=Math.max(pkO-0.25,sal);
+  medidor("mi0",s.lin,pkI); medidor("mi1",s.lin-0.6,pkI-0.4); medidor("mo0",sal,pkO); medidor("mo1",sal-0.3,pkO-0.2);
+  if(++cuadro%6===0){
+    const set=(id,v)=>document.getElementById(id).textContent=fmt(v);
+    set("lPkI",pkI); set("lPkO",pkO); set("lTpI",pkI+0.3); set("lTpO",Math.min(pkO,P.techo.v+P.salida.v));
+    set("lMI",s.lin-8.5); set("lMO",sal-6.2); document.getElementById("lRec").textContent=s.rec.toFixed(1).replace(".",",");
+    document.getElementById("lDen").textContent=fmt(s.den);
+    document.getElementById("rMax").textContent=fmt(-rMax)+" dB";
+    const mm=Math.floor(rT/60), ss=Math.floor(rT%60); document.getElementById("rPos").textContent=`en ${String(mm).padStart(2,"0")}:${String(ss).padStart(2,"0")}`;
+  }
+  dibujar(); requestAnimationFrame(bucle);
+}
+document.getElementById("reloj").onclick=()=>{ rMax=0; rT=0; };
+
+/* ===================== faders húmedo / seco ===================== */
+const fader={hum:0, sec:-Infinity}; let enl=true;
+function dbDeN(n){ return n<=0.001?-Infinity: 6+ (n-1)*60; } // 0..1 → −54..+6 (−∞ abajo)
+function nDeDb(d){ return d===-Infinity?0:Math.max(0,(d-6)/60+1); }
+function pintarFaders(){
+  [["fHum","hum"],["fSec","sec"]].forEach(([id,k])=>{ const el=document.getElementById(id), n=nDeDb(fader[k]);
+    el.querySelector(".relleno").style.height=(n*100)+"%"; el.querySelector(".tope").style.bottom=(n*100)+"%";
+    el.querySelector(".val").textContent=fader[k]===-Infinity?"−∞":fmt(fader[k]); });
+}
+[["fHum","hum","sec"],["fSec","sec","hum"]].forEach(([id,k,otro])=>{
+  const riel=document.querySelector("#"+id+" .riel"); let act=false;
+  const set=e=>{ const r=riel.getBoundingClientRect(); const n=Math.max(0,Math.min(1,1-(e.clientY-r.top)/r.height));
+    fader[k]=dbDeN(n);
+    if(enl){ // crossfade de potencia constante: mezcla = sen²/cos² sobre la posición
+      const lin=fader[k]===-Infinity?0:Math.min(1,Math.pow(10,fader[k]/20)); const o=Math.sqrt(Math.max(0,1-lin*lin));
+      fader[otro]=o<0.002?-Infinity:20*Math.log10(o); }
+    pintarFaders(); };
+  riel.addEventListener("pointerdown",e=>{act=true; riel.setPointerCapture(e.pointerId); set(e);});
+  riel.addEventListener("pointermove",e=>act&&set(e)); riel.addEventListener("pointerup",()=>act=false);
+});
+document.getElementById("enlMez").onclick=e=>{ enl=!enl; e.currentTarget.classList.toggle("on",enl); };
+
+/* ===================== A/B ===================== */
+let ab={enlazados:true, activo:"A"};
+function pintarAB(){ document.getElementById("btnA").classList.toggle("on",!ab.enlazados&&ab.activo==="A");
+  document.getElementById("btnB").classList.toggle("on",!ab.enlazados&&ab.activo==="B");
+  document.getElementById("abEstado").textContent=ab.enlazados?"A = B":"editando "+ab.activo; }
+document.getElementById("btnA").onclick=()=>{ab.enlazados=false;ab.activo="A";pintarAB();};
+document.getElementById("btnB").onclick=()=>{ab.enlazados=false;ab.activo="B";pintarAB();};
+document.getElementById("btnCopiar").onclick=()=>{ab.enlazados=true;pintarAB();};
+
+/* ===================== avanzado, segmentos, interruptores ===================== */
+document.getElementById("btnAvz").onclick=e=>{ const a=document.getElementById("avanzado").classList.toggle("abierto");
+  e.currentTarget.textContent=a?"Avanzado ▾":"Avanzado ▴"; e.currentTarget.classList.toggle("on",a); };
+document.querySelectorAll(".seg").forEach(s=>s.querySelectorAll("button").forEach(b=>b.onclick=()=>{
+  s.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b)); }));
+document.querySelectorAll(".interruptor").forEach(i=>i.onclick=()=>{ const on=i.classList.toggle("on");
+  const t=i.querySelector("span:last-child"); t.textContent=t.textContent.replace(/Activad[oa]|Desactivad[oa]/,m=>{
+    const f=m.endsWith("a"); return on?(f?"Activada":"Activado"):(f?"Desactivada":"Desactivado"); }); });
+const CPU={"Eco · 1x":"0,2","Normal · 2x":"0,4","Alta · 4x":"0,7","Máxima · 8x":"1,3"};
+document.getElementById("calidad").onchange=e=>document.getElementById("cpu").textContent="CPU "+CPU[e.target.value]+" %";
+
+/* ===================== tooltips ===================== */
+const tip=document.getElementById("tip"); let tipT=null;
+document.addEventListener("pointerover",e=>{ const el=e.target.closest("[data-tip]"); clearTimeout(tipT); tip.style.display="none";
+  if(!el) return; tipT=setTimeout(()=>{ tip.textContent=el.dataset.tip; const r=el.getBoundingClientRect();
+    tip.style.display="block"; tip.style.left=Math.min(innerWidth-250,r.left)+"px"; tip.style.top=(r.bottom+6)+"px"; },450); });
+
+/* ===================== actualización general y escala ===================== */
+function actualizar(){
+  document.querySelectorAll(".perilla").forEach(pintarPerilla); pintarModos(); pintarTransfer();
+  document.getElementById("gu").textContent=fmt(-P.densidad.v)+" dB";
+}
+let escala=1;
+function ajustar(){ const m=document.getElementById("marco"); escala=Math.min(1,m.clientWidth/1040);
+  document.getElementById("plugin").style.transform=`scale(${escala})`; m.style.height=(640*escala)+"px"; }
+addEventListener("resize",ajustar); ajustar();
+pintarFaders(); pintarAB(); actualizar(); bucle();
+</script>
+</body>
+</html>
