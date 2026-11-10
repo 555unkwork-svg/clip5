@@ -1,0 +1,23 @@
+.ui{position:relative;border-radius:12px;overflow:hidden;font-family:Inter;box-sizing:border-box}
+.ui *{box-sizing:border-box}
+.ui .card{position:absolute;border-radius:10px}
+.ui .t{position:absolute;white-space:nowrap}
+.ui .vb{position:absolute;height:22px;line-height:22px;border-radius:5px;text-align:center;font:11.5px Mono}
+.ui .pill{position:absolute;height:24px;line-height:24px;border-radius:6px;text-align:center;font:12px Inter;white-space:nowrap;overflow:hidden}
+.ui .sq{position:absolute;width:36px;height:36px;border-radius:7px;border:1px solid;display:flex;align-items:center;justify-content:center}
+.ui .sl{position:absolute;height:4px;border-radius:2px}
+.ui .sl div{height:4px;border-radius:2px}
+.ui .sl i{position:absolute;top:-5px;width:14px;height:14px;border-radius:7px;margin-left:-7px}
+.ui .stk{position:absolute;z-index:5}
+.ui .stk svg{width:100%;height:100%;overflow:visible}
+.ui .ov{position:absolute;border-radius:10px;border:1px solid;padding:12px 14px;z-index:4;box-shadow:0 10px 30px rgba(0,0,0,.35);font-size:12px}
+.ui .oh{font:13px Bevan;margin-bottom:8px;display:flex;justify-content:space-between}
+.ui .oh span{font:10px Inter;opacity:.7}
+.ui .orow{display:grid;grid-template-columns:1fr 70px 70px;padding:4px 0;font-size:12px}
+.ui .orow .m{font-family:Mono;text-align:right}
+.ui .orow.hd span{text-align:right;font-size:11px}
+.ui .osub{font:11px Bevan;margin:8px 0 2px;padding-top:6px;border-top:1px solid rgba(127,127,127,.35)}
+.ui .obtns span{display:inline-block;border:1px solid;border-radius:6px;padding:3px 10px;margin-top:6px;font-size:11.5px}
+.ui .orow2{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(127,127,127,.2);font-size:12px}
+.ui .seg{border-radius:6px;padding:3px 8px;font-size:11px}
+.ui .seg b{font-weight:normal;font-family:InterSemi;border-radius:4px;padding:1px 6px;margin-right:4px}

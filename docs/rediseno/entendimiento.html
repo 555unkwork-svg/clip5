@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<title>clip5 — Rediseño de interfaz: lo que entendí</title>
+<link rel="stylesheet" href="fonts.css"><link rel="stylesheet" href="ui.css">
+<script src="stickers.js"></script><script src="temas.js"></script><script src="ui.js"></script>
+<style>
+@page { size: 1600px 1000px; margin: 0; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #DDE3E6; font-family: Inter; color: #13232F; }
+.page { width: 1600px; height: 1000px; background: #F2F5F6; position: relative; overflow: hidden; padding: 0 64px; page-break-after: always; margin: 0 auto 20px; }
+.hdr { height: 74px; display: flex; align-items: center; border-bottom: 1px solid #C9D3D8; font-size: 13px; letter-spacing: .4px; color: #3B5566; }
+.hdr b { font: 21px Bevan; color: #13232F; margin-right: 28px; letter-spacing: 0; }
+.hdr .r { margin-left: auto; text-transform: uppercase; }
+.ftr { position: absolute; left: 64px; right: 64px; bottom: 0; height: 52px; border-top: 1px solid #C9D3D8; display: flex; align-items: center; font-size: 12px; color: #3B5566; }
+.ftr .r { margin-left: auto; font-family: Mono; }
+h1 { font: 50px/1.1 Bevan; margin: 34px 0 8px; letter-spacing: -.5px; }
+.sub { font-size: 21px; color: #3B5566; margin: 0 0 26px; }
+h2 { font: 24px Bevan; margin: 0 0 12px; }
+h3 { font: 18px InterSemi; margin: 0 0 6px; }
+p, li { font-size: 16px; line-height: 1.5; color: #2A3D49; }
+.box { background: #fff; border: 1px solid #D3DCE1; border-radius: 12px; padding: 20px 22px; }
+.soft { background: #E6ECEF; border-radius: 12px; padding: 18px 22px; }
+.mock { position: relative; overflow: hidden; border-radius: 12px; }
+.mock > .ui { transform-origin: 0 0; position: absolute; left: 0; top: 0; }
+.num { position: absolute; width: 28px; height: 28px; border-radius: 14px; background: #2C4A5C; color: #fff; font: 14px InterSemi; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 3px #fff; z-index: 9; }
+.list .it { display: flex; gap: 14px; padding: 9px 0; border-bottom: 1px solid #CED8DD; }
+.list .it .n { flex: 0 0 26px; height: 26px; border-radius: 13px; background: #2C4A5C; color: #fff; font: 13px InterSemi; display: flex; align-items: center; justify-content: center; margin-top: 2px; }
+.list .it h3 { font-size: 17px; margin: 0 0 2px; }
+.list .it p { margin: 0; font-size: 14.5px; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th { text-align: left; font: 13.5px InterSemi; background: #E3EAEE; padding: 10px 14px; }
+td { padding: 10px 14px; border-bottom: 1px solid #D6DFE3; vertical-align: top; }
+tr:nth-child(even) td { background: #F7F9FA; }
+td.m, span.m { font-family: Mono; font-size: 14px; }
+.tag { display: inline-block; font: 12px InterSemi; padding: 2px 8px; border-radius: 10px; background: #DDE6EA; color: #2C4A5C; }
+.tag.new { background: #DFF3EA; color: #1B6B4A; }
+.tag.chg { background: #FBE9DD; color: #9A4A14; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+.sw { display: inline-flex; align-items: center; gap: 8px; margin: 0 14px 8px 0; font-size: 12.5px; }
+.sw i { width: 22px; height: 22px; border-radius: 5px; border: 1px solid rgba(0,0,0,.15); display: inline-block; }
+.sw .m { font-family: Mono; font-size: 12.5px; }
+.sw small { display: block; color: #5B7080; font-size: 11px; }
+.stk svg { width: 100%; height: 100%; overflow: visible; }
+.before { font-size: 13px; color: #8A4A2A; text-decoration: line-through; }
+.arrow { color: #2C4A5C; font: 18px InterSemi; margin: 0 8px; }
+</style></head>
+<body>
+<script>
+const P = [];   // páginas
+const page = (section, body) => P.push({ section, body });
+const mock = (c, w, opts = {}) => { const s = w / UI.W; return `<div class="mock" style="width:${w}px;height:${(UI.H * s).toFixed(1)}px"><div style="transform:scale(${s});transform-origin:0 0;width:${UI.W}px;height:${UI.H}px">${UI.ui(c, opts)}</div></div>`; };
+const T = TEMAS, byId = id => T.find(t => t.id === id);
+const sticker = (name, size, extra = "") => `<div class="stk" style="width:${size}px;height:${size}px;${extra}">${Stickers[name]()}</div>`;
+
+// contraste WCAG
+const lum = h => { const v = [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16) / 255).map(x => x <= .03928 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4); return .2126 * v[0] + .7152 * v[1] + .0722 * v[2]; };
+const cr = (a, b) => { const A = lum(a), B = lum(b); return (Math.max(A, B) + .05) / (Math.min(A, B) + .05); };
+const fmt = x => x.toFixed(2).replace(".", ",");
+
+// ====================================================================== 1 · portada
+page("Concepto de rediseño", `
+  <h1 style="font-size:64px;margin-top:46px">Rediseño de la interfaz</h1>
+  <p class="sub">Lo que entendí de tu guía visual y funcional, con tus observaciones aplicadas. Antes de programar.</p>
+  <div style="display:grid;grid-template-columns:520px 1fr;gap:44px;align-items:start">
+    <div>
+      <h2>Qué muestra este documento</h2>
+      <div class="list">
+        ${[["La nueva distribución", "Anatomía del editor con tus cinco cambios aplicados."], ["Tus observaciones", "Antes y después, una por una."], ["Funcionamiento", "Nombres, teclado, foco, paneles y Apariencia."], ["Diez temas", "Colores, tipo de tema y su sticker propio."], ["Stickers originales", "Diseño propio, vectorial, con firma 5unk."], ["Próximos pasos", "Qué implemento y cómo lo revisamos."]].map((x, i) => `<div class="it"><div class="n">${i + 1}</div><div><h3>${x[0]}</h3><p>${x[1]}</p></div></div>`).join("")}
+      </div>
+      <div class="soft" style="margin-top:22px"><p style="margin:0">Las maquetas están construidas con los mismos roles de color y medidas que voy a usar en el plugin (lienzo de 1040 × 640 px). La señal del gráfico es ilustrativa.</p></div>
+    </div>
+    <div>${mock(byId("sonic").c, 950, { sticker: "sonic" })}
+      <p style="font-size:14px;color:#5B7080;margin-top:10px">Tema 7 · sonic (base Cobalto de referencia) · señal ilustrativa</p></div>
+  </div>`);
+
+// ====================================================================== 2 · anatomía
+(() => {
+  const w = 1000, s = w / UI.W;
+  const n = (k, x, y) => `<div class="num" style="left:${x * s - 14}px;top:${y * s - 14}px">${k}</div>`;
+  page("Anatomía", `
+  <h1>La nueva anatomía de clip5</h1>
+  <p class="sub">La misma organización de la guía: ajustar la señal, leer el resultado y comparar. Con tus cambios aplicados.</p>
+  <div style="display:grid;grid-template-columns:1000px 1fr;gap:36px">
+    <div style="position:relative">${mock(byId("ice").c, w, { sticker: "ice" })}
+      ${n(1, 690, 14)}${n(2, 14, 250)}${n(3, 14, 540)}${n(4, 330, 70)}${n(5, 1014, 66)}${n(6, 208, 476)}${n(7, 638, 476)}${n(8, 1026, 476)}${n(9, 198, 150)}</div>
+    <div class="list">
+      ${[["Preset y comparación", "Preset con ‹ ›, estado A/B, deshacer, rehacer, A, B, Unificar A/B y ⚙ (Apariencia y escala)."],
+         ["Curva de recorte", "Cuatro cuadraditos con el dibujo de la curva. Techo grande y Densidad debajo."],
+         ["Entrada y Salida", "Juntas al pie de la columna, sin subtextos."],
+         ["Sticker del tema", "Reemplaza al título «Historial de niveles». Cada tema tiene el suyo."],
+         ["Paneles secundarios", "Curva E/S, Medidores y Avanzado, superpuestos sin tapar los controles."],
+         ["Mezcla paralela", "Procesada y Original con Enlace entre ambas."],
+         ["Smooth", "Antes «Suavizado de agudos». Perilla y porcentaje."],
+         ["Oversampling", "Más compacto: 1× 2× 4× 8×, CPU y factor de exportación en una línea."],
+         ["Iconos de curva", "Sin texto: Suave, Medio, Duro y Sin recorte se reconocen por el dibujo (nombre en la ayuda emergente)."]].map((x, i) => `<div class="it"><div class="n">${i + 1}</div><div><h3>${x[0]}</h3><p>${x[1]}</p></div></div>`).join("")}
+    </div>
+  </div>`);
+})();
+
+// ====================================================================== 3 · tus observaciones
+(() => {
+  const c = byId("pro").c, icon = m => `<div style="display:inline-flex;width:40px;height:40px;border-radius:8px;align-items:center;justify-content:center;margin-right:6px;background:${m === 1 ? c.sel : c.sup};border:1px solid ${m === 1 ? c.sel : c.txt2 + "55"}">${UI.curveIcon(m, m === 1 ? c.selTxt : c.txt, 36)}</div>`;
+  const dark = (inner, h = 120) => `<div style="background:${c.fondo};border-radius:10px;height:${h}px;padding:16px;display:flex;align-items:center;gap:14px;color:${c.txt}">${inner}</div>`;
+  const cardC = (n, title, before, after, demo) => `<div class="box"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div class="num" style="position:static;box-shadow:none">${n}</div><h3 style="margin:0">${title}</h3></div>
+     <p style="margin:0 0 10px"><span class="before">${before}</span><span class="arrow">→</span><b>${after}</b></p>${demo}</div>`;
+  page("Tus observaciones", `
+  <h1>Tus cinco cambios sobre la guía</h1>
+  <p class="sub">Aplicados en todas las maquetas de este documento.</p>
+  <div class="grid3">
+    ${cardC(1, "Oversampling más compacto", "222 px de ancho, título y CPU separados", "182 px · factores, CPU y exportación en un bloque",
+      dark(`<div style="background:${c.sup};border-radius:10px;padding:12px 14px;width:200px"><div style="font:12px Bevan;margin-bottom:10px">OVERSAMPLING</div><div style="display:flex;gap:5px">${["1×", "2×", "4×", "8×"].map((t, i) => `<span style="flex:1;text-align:center;border-radius:6px;padding:5px 0;font-size:12px;background:${i === 1 ? c.sel : c.proc};color:${i === 1 ? c.selTxt : c.txt}">${t}</span>`).join("")}</div><div style="font-size:10.5px;color:${c.txt2};margin-top:8px">CPU <span class=m>0,6 %</span> · Export <span class=m>8×</span></div></div>`))}
+    ${cardC(2, "Smooth", "SUAVIZADO DE AGUDOS · Intensidad", "SMOOTH",
+      dark(`<div style="background:${c.sup};border-radius:10px;padding:12px 14px;width:220px"><div style="font:12px Bevan;margin-bottom:6px">SMOOTH</div><div style="display:flex;align-items:center;gap:14px">${UI.knob(56, .35, c)}<span style="font:12px Mono;background:${c.proc};border-radius:5px;padding:3px 12px">35 %</span></div></div>`))}
+    ${cardC(3, "Sticker en lugar del título", "HISTORIAL DE NIVELES", "Sticker propio de cada tema, «pegado» sobre el plugin",
+      dark(`<div style="width:100%;height:100%;background:${c.graf};border-radius:8px;position:relative">${sticker("pro", 96, "position:absolute;left:-6px;top:-14px")}<div style="position:absolute;right:10px;top:10px;font-size:11px;display:flex;gap:6px">${["Curva E/S", "Medidores", "Avanzado"].map(t => `<span style="background:${c.sup};border-radius:6px;padding:3px 8px">${t}</span>`).join("")}</div></div>`))}
+    ${cardC(4, "Curva de recorte con iconos", "PROCESAMIENTO · botones con texto", "CURVA DE RECORTE · 4 cuadraditos con el dibujo",
+      dark(`<div><div style="font:12px Bevan;margin-bottom:10px">CURVA DE RECORTE</div>${[0, 1, 2, 3].map(icon).join("")}</div>`))}
+    ${cardC(5, "Perillas sin subtextos", "«Referencia de recorte», «Realce a bajo nivel», «Intensidad»", "Solo nombre y valor",
+      dark(`<div style="text-align:center"><div style="font:13px InterSemi">Techo</div>${UI.knob(70, .94, c)}<div style="font:11.5px Mono;background:${c.proc};border-radius:5px;padding:2px 10px">−1,0 dBFS</div></div><div style="text-align:center"><div style="font:13px InterSemi">Densidad</div>${UI.knob(56, .33, c)}<div style="font:11.5px Mono;background:${c.proc};border-radius:5px;padding:2px 10px">+2,0 dB</div></div>`, 150))}
+    <div class="soft"><h3>Lo que no cambia de la guía</h3><p style="margin:0">La distribución, la jerarquía tipográfica (Bevan, Inter, JetBrains Mono), las medidas (1040 × 640, márgenes de 14 y 12 px, ritmo 4/8/16/24), el gráfico con sus cuatro lecturas y los paneles Curva E/S, Medidores y Avanzado.</p></div>
+  </div>`);
+})();
+
+// ====================================================================== 4 · nombres y parámetros
+page("Funcionamiento", `
+  <h1>Nombres en la interfaz</h1>
+  <p class="sub">Adopto el vocabulario de la guía. Los identificadores internos no cambian: sesiones, presets y automatizaciones guardadas siguen funcionando.</p>
+  <table>
+    <tr><th>Antes (0.9.0)</th><th>Ahora</th><th>Dónde está</th><th>Identificador interno (sin cambios)</th></tr>
+    ${[["Firme", "Medio", "Curva de recorte", "modo = 1"], ["Apagado", "Sin recorte", "Curva de recorte", "modo = 3"], ["Suavizado", "Smooth", "Fila inferior", "suavizado"], ["Suavizado extendido", "Rango de Smooth (−2 / −3 dB)", "Avanzado", "suavizado_ext"],
+       ["Húmedo / Seco", "Procesada / Original", "Mezcla paralela", "humedo / seco"], ["Enlace de mezcla", "Enlace", "Mezcla paralela", "enlace_mezcla"], ["Calidad", "Oversampling (1× 2× 4× 8×)", "Fila inferior", "calidad"],
+       ["Calidad al exportar", "Oversampling al exportar", "Avanzado", "calidad_offline"], ["Techo estricto", "Limitador True Peak", "Avanzado", "techo_estricto"], ["Tono", "Atenuación fija de agudos", "Avanzado", "tono"],
+       ["Enlace E/S", "Compensación de entrada", "Avanzado", "enlace_es"], ["Ganancia unitaria", "Compensación de Densidad", "Avanzado", "ganancia_unitaria"], ["A ⇄ B (copiar y enlazar)", "Unificar A/B", "Barra superior", "—"],
+       ["Reloj de recorte", "Exceso máximo (con Reiniciar máximo)", "Medidores", "—"]].map(r => `<tr><td class="before" style="text-decoration:none;color:#8A4A2A">${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td><td class="m">${r[3]}</td></tr>`).join("")}
+  </table>
+  <p style="margin-top:16px">El manual, los presets de fábrica y las ayudas emergentes se actualizan con los nombres nuevos.</p>`);
+
+// ====================================================================== 5 · interacción
+(() => {
+  const c = byId("sonic").c;
+  const st = (label, style) => `<div style="background:#23408B;border-radius:10px;padding:16px 14px;text-align:center;color:#F4F7FF"><div style="font:13px InterSemi;margin-bottom:10px">${label}</div><div style="border-radius:7px;padding:8px 0;font-size:14px;${style}">Medidores</div></div>`;
+  page("Interacción", `
+  <h1>Teclado, foco y estados</h1>
+  <p class="sub">Todo se opera con puntero o con teclado. El anillo indica dónde actúa el teclado; el relleno, qué está seleccionado.</p>
+  <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:26px">
+    ${st("Normal", "border:1px solid #5D77B3;background:#2B4A93")}${st("Cursor encima", "border:1px solid #8FA6DA;background:#3A5AA6")}${st("Pulsado", "border:1px solid #8FA6DA;background:#4A67AE")}
+    ${st("Seleccionado", "background:#A9C7FF;color:#151E35;font-family:InterSemi")}${st("Foco de teclado", "border:1px solid #5D77B3;background:#2B4A93;box-shadow:0 0 0 3px #C1E7FF")}${st("Desactivado", "border:1px solid #5D77B399;background:#2B4A93;color:#F4F7FF66")}
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 470px;gap:30px">
+    <table>
+      <tr><th>Control</th><th>Puntero</th><th>Teclado</th></tr>
+      <tr><td><b>Perilla / fader</b></td><td>Arrastre vertical · Shift = fino · Ctrl/Cmd+clic = valor inicial · rueda</td><td>Tab enfoca · ↑ ↓ pasos (Shift = fino) · Enter abre la edición directa</td></tr>
+      <tr><td><b>Valor editable</b></td><td>Doble clic en la perilla o clic en el recuadro del valor · doble clic en un fader = 0 dB</td><td>Enter aplica · Esc restaura · acepta coma o punto · muestra rango y unidad</td></tr>
+      <tr><td><b>Curva / Oversampling</b></td><td>Clic en la opción</td><td>← → dentro del grupo · Enter o Espacio aplica</td></tr>
+      <tr><td><b>Paneles</b></td><td>El mismo botón abre y cierra</td><td>Esc cierra y devuelve el foco al botón; si hay una edición abierta, Esc la cancela primero</td></tr>
+      <tr><td><b>Deshacer</b></td><td>Botones ↶ ↷</td><td>Ctrl/Cmd+Z · Ctrl/Cmd+Shift+Z</td></tr>
+    </table>
+    <div>
+      <div class="box" style="margin-bottom:18px"><h3>Edición directa</h3>
+        <div style="background:${c.proc};border-radius:8px;padding:14px;display:flex;gap:14px;align-items:center">
+          <div style="background:#fff;border:2px solid ${c.foco};border-radius:6px;padding:6px 14px;font:16px Mono">−1,0</div>
+          <div style="font-size:13px;color:${c.txt2}">dBFS · rango −36 a 0<br>Enter aplica · Esc cancela</div></div>
+        <p style="margin:10px 0 0;font-size:14px">Si el valor es inválido se mantiene el último aplicado y el rango queda visible junto al campo.</p></div>
+      <div class="box"><h3>Lecturas sin dato</h3><p style="margin:0;font-size:14.5px">Una raya <span class="m">—</span> cuando todavía no hay medición; <span class="m">0,0</span> solo cuando el valor medido es cero.</p></div>
+    </div>
+  </div>`);
+})();
+
+// ====================================================================== 6 · paneles
+page("Paneles", `
+  <h1>Curva E/S, Medidores y Avanzado</h1>
+  <p class="sub">Se abren desde el encabezado del gráfico y se superponen sin tapar los controles principales.</p>
+  <div class="grid3">
+    <div>${mock(byId("pro").c, 470, { sticker: "pro", panel: "Curva E/S" })}<h3 style="margin-top:12px">Curva E/S</h3><p style="margin:0;font-size:14.5px">Transferencia estática de Densidad y la curva elegida, en dB relativos al Techo. La diagonal es ganancia unitaria.</p></div>
+    <div>${mock(byId("pro").c, 470, { sticker: "pro", panel: "Medidores" })}<h3 style="margin-top:12px">Medidores</h3><p style="margin:0;font-size:14.5px">Pico (dBFS), pico real de salida (dBTP) y LUFS M/S/I de Entrada y Salida. <b>Reiniciar medidores</b> y <b>Reiniciar máximo</b> son botones separados.</p></div>
+    <div>${mock(byId("pro").c, 470, { sticker: "pro", panel: "Avanzado" })}<h3 style="margin-top:12px">Avanzado</h3><p style="margin:0;font-size:14.5px">Oversampling al exportar, fase, Limitador True Peak, atenuación fija de agudos, rango de Smooth y las dos compensaciones.</p></div>
+  </div>
+  <div class="soft" style="margin-top:24px"><p style="margin:0">Medidores reemplaza al panel fijo de la versión 0.9.0: la columna derecha desaparece y el gráfico gana ancho, como en la guía. El <b>exceso máximo</b> y su tiempo (antes «Reloj de recorte») viven dentro de Medidores.</p></div>`);
+
+// ====================================================================== 7 · apariencia
+(() => {
+  const sel = byId("420");
+  page("Apariencia", `
+  <h1>Apariencia: elegir un tema</h1>
+  <p class="sub">⚙ → Apariencia. Vista previa antes de aplicar; el tema es una preferencia local y no viaja en los presets.</p>
+  <div class="box" style="display:grid;grid-template-columns:330px 1fr;gap:28px;padding:20px 24px">
+    <div>
+      <h2 style="font-size:28px">Apariencia</h2>
+      ${T.map((t, i) => `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;${t.id === sel.id ? "border:1.5px solid #2C4A5C;background:#EEF3F5" : ""}">
+        <span style="display:flex;gap:2px">${[t.c.sup, t.c.graf, t.c.sel].map(x => `<i style="width:14px;height:20px;border-radius:3px;background:${x};display:inline-block;border:1px solid #0001"></i>`).join("")}</span>
+        <span style="font-size:15px;flex:1">${i + 1} · ${t.nombre}</span><span style="font-size:12px;color:#5B7080">${i === 6 ? "En uso" : t.tipo}</span></div>`).join("")}
+    </div>
+    <div>
+      <h3>Vista previa · ${sel.nombre}</h3>
+      ${mock(sel.c, 940, { sticker: sel.sticker })}
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px">
+        <p style="margin:0;font-size:14px;color:#5B7080">↑ ↓ cambian la vista previa · Tab lleva a Aplicar · Enter confirma · Esc restaura el tema anterior</p>
+        <div style="display:flex;gap:12px"><span style="padding:10px 24px;border-radius:8px;background:#E3EAEE;font:15px InterSemi">Cancelar</span><span style="padding:10px 26px;border-radius:8px;background:#2C4A5C;color:#fff;font:15px InterSemi">Aplicar</span></div>
+      </div>
+    </div>
+  </div>`);
+})();
+
+// ====================================================================== 8 · los diez temas
+page("Temas", `
+  <h1>Diez temas, un mismo sistema</h1>
+  <p class="sub">Cada tema cambia colores y sticker. Los controles, la escala y el significado de cada lectura no cambian.</p>
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:20px">
+    ${T.map((t, i) => `<div class="box" style="padding:14px;position:relative">
+      <div style="font:12px Mono;color:#5B7080;letter-spacing:1px">${String(i + 1).padStart(2, "0")} · ${t.tipo.toUpperCase()}</div>
+      <div style="font:21px InterSemi;margin:2px 0 8px">${t.nombre}</div>
+      ${mock(t.c, 248, { sticker: t.sticker })}
+      <div style="display:flex;gap:4px;margin-top:10px">${[t.c.sup, t.c.graf, t.c.sel, t.c.over].map(x => `<i style="flex:1;height:22px;border-radius:5px;background:${x};border:1px solid #0001"></i>`).join("")}</div>
+      <div style="font-size:12px;color:#5B7080;margin-top:6px">base: ${t.base}</div>
+      ${sticker(t.sticker, 70, "position:absolute;right:4px;top:-8px")}
+    </div>`).join("")}
+  </div>
+  <p style="font-size:13.5px;color:#5B7080;margin-top:14px">Muestras: superficie · gráfico · selección · aviso (sobre el techo).</p>`);
+
+// ====================================================================== 9–13 · fichas de tema
+const roles = [["fondo", "Fondo"], ["sup", "Superficie"], ["proc", "Procesamiento"], ["graf", "Gráfico"], ["txt", "Texto"], ["txt2", "Texto secundario"], ["sel", "Selección"], ["selTxt", "Texto seleccionado"], ["inFill", "Entrada · relleno"], ["inBorde", "Entrada · borde"], ["outLine", "Salida · línea"], ["dens", "Densidad"], ["over", "Sobre el techo"], ["overArea", "Sobre el techo · área"], ["foco", "Foco"], ["perilla", "Perilla"]];
+const ficha = (t, i) => {
+  const c = t.c, grafBg = c.grafBase || c.graf;
+  const checks = [["Texto", cr(c.txt, c.sup)], ["Selección", cr(c.selTxt, c.sel)], ["Aviso", cr(c.over, grafBg)], ["Foco", cr(c.foco, c.sup)]];
+  return `<div class="box" style="padding:18px 20px">
+    <div style="display:flex;align-items:baseline;justify-content:space-between"><h2 style="font-size:26px;margin:0">${i + 1} · ${t.nombre}</h2><span style="font:13px Mono;color:#5B7080">${t.tipo.toUpperCase()} · base ${t.base}</span></div>
+    <div style="position:relative;margin:10px 0 8px">${mock(c, 600, { sticker: t.sticker })}</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px 6px">${roles.map(([k, l]) => `<div class="sw"><i style="background:${c[k]}"></i><span><span class="m">${c[k]}</span><small>${l}</small></span></div>`).join("")}</div>
+    <div style="display:flex;gap:16px;font-size:12.5px;color:#2A3D49;margin-top:4px">${checks.map(([k, v]) => `<span>${k} <b class="m" style="color:${(k === "Texto" || k === "Selección" || k === "Aviso" ? v >= 4.5 : v >= 3) ? "#1B6B4A" : "#B23A3A"}">${fmt(v)}:1</b></span>`).join("")}</div>
+    <p style="font-size:13.5px;margin:6px 0 0">${t.nota}</p>
+  </div>`;
+};
+for (let i = 0; i < 10; i += 2)
+  page("Fichas de tema", `<h1 style="margin:26px 0 14px">Temas ${i + 1} y ${i + 2}</h1><div class="grid2">${ficha(T[i], i)}${ficha(T[i + 1], i + 1)}</div>`);
+
+// ====================================================================== 14 · stickers
+page("Stickers", `
+  <h1>Stickers originales</h1>
+  <p class="sub">Ilustraciones vectoriales de diseño propio, inspiradas en tus ideas sin copiar logos ni personajes ajenos: los derechos son de ustedes.</p>
+  <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:18px 22px">
+    <div class="box" style="text-align:center;padding:12px;background:#2A3035;color:#fff">${sticker("tag5unk", 170, "margin:0 auto")}<b>5unk</b><div style="font-size:12px;opacity:.75">Tag de la marca: firma en cada sticker</div></div>
+    ${T.map((t, i) => `<div class="box" style="text-align:center;padding:12px;background:${t.c.graf}">${sticker(t.sticker, 170, "margin:0 auto")}<b style="color:${t.c.grafTxt || t.c.txt}">${i + 1} · ${t.nombre}</b><div style="font-size:12px;color:${t.c.grafEscala || t.c.txt2}">${{ ice: "Cubo de hielo", raw: "Librillo de papel crudo", violeta: "Cogollo violeta", pro: "Sello «professional certified»", cafe: "Café con arte latte", marfil: "Rifle de asalto (silueta)", sonic: "Anillo dorado a toda velocidad", roseGold: "Gatita kawaii con broche de corazón", c420: "Insignia 420 con hoja", serum: "Gotero con forma de onda" }[t.sticker]}</div></div>`).join("")}
+  </div>
+  <div class="grid3" style="margin-top:22px">
+    <div class="soft"><h3>Cómo se ven en el plugin</h3><p style="margin:0">Troquelados con borde blanco y sombra suave, apenas inclinados, «pegados» sobre la esquina del gráfico. Vectoriales: nítidos del 75 al 200 %.</p></div>
+    <div class="soft"><h3>Inspirados, no copiados</h3><p style="margin:0">raw usa una tipografía y un librillo propios; sonic es un anillo con estela, sin el personaje; rose gold es una gatita original con boca, ojos felices y broche de corazón; serum es un gotero, sin el logo del sintetizador.</p></div>
+    <div class="soft"><h3>Firma 5unk</h3><p style="margin:0">El tag 5unk (tipografía de graffiti con licencia libre) aparece pequeño en cada sticker, como firma de autor.</p></div>
+  </div>`);
+
+// ====================================================================== 15 · próximos pasos
+page("Próximos pasos", `
+  <h1>Cómo sigue</h1>
+  <p class="sub">Una vez que apruebes este documento.</p>
+  <div class="grid3">
+    <div class="box"><span class="tag new">01</span><h3 style="margin-top:8px">Interfaz nueva en el plugin</h3><p style="margin:0">Distribución, tipografías (Bevan se suma, licencia OFL), Curva de recorte con iconos, Smooth, Oversampling compacto, paneles superpuestos y nombres nuevos.</p></div>
+    <div class="box"><span class="tag new">02</span><h3 style="margin-top:8px">Teclado y estados</h3><p style="margin:0">Tab, flechas, Enter y Esc en todos los controles; foco visible; edición directa con rango y unidad; raya para lecturas sin dato.</p></div>
+    <div class="box"><span class="tag new">03</span><h3 style="margin-top:8px">Diez temas y stickers</h3><p style="margin:0">Selector de Apariencia con vista previa, Aplicar y Cancelar; preferencia local; stickers vectoriales dentro del plugin.</p></div>
+    <div class="box"><span class="tag chg">04</span><h3 style="margin-top:8px">Revisión intermedia</h3><p style="margin:0">Te envío capturas del plugin real con 2–3 temas antes de completar los diez.</p></div>
+    <div class="box"><span class="tag chg">05</span><h3 style="margin-top:8px">Validación</h3><p style="margin:0">Pruebas automáticas, pluginval en Windows, macOS y Linux, contraste de cada tema y capturas al 75, 100 y 200 %.</p></div>
+    <div class="box"><span class="tag chg">06</span><h3 style="margin-top:8px">Entrega</h3><p style="margin:0">Manual actualizado con los nombres nuevos y una nueva versión de los instaladores en GitHub Releases.</p></div>
+  </div>
+  <div class="soft" style="margin-top:24px"><h3>Para validar en esta etapa</h3><p style="margin:0">Los colores de <b>serum</b> son una propuesta inspirada en la estética de los sintetizadores modernos: si me envías capturas de referencia, ajusto los valores exactos. En <b>raw</b>, el aviso «sobre el techo» pasa a azul cobalto; si prefieres otro color contrastante, se cambia en un solo lugar.</p></div>`);
+
+// ====================================================================== render
+P.forEach((p, i) => document.write(`<div class="page"><div class="hdr"><b>CLIP5</b>REDISEÑO DE INTERFAZ · LO QUE ENTENDÍ<span class="r">${p.section}</span></div>${p.body}<div class="ftr">CLIP5 · CONCEPTO DE PRODUCTO<span class="r">${String(i + 1).padStart(2, "0")} / ${P.length}</span></div></div>`));
+</script>
+</body></html>
