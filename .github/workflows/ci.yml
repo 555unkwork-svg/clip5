@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS Universal (M1)
+            os: macos-14
+            pluginval: https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_macOS.zip
+            cmake_extra: -G Xcode
+          - name: Windows x64
+            os: windows-latest
+            pluginval: https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_Windows.zip
+            cmake_extra: -A x64
+          - name: Linux x64
+            os: ubuntu-24.04
+            pluginval: https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_Linux.zip
+            cmake_extra: -G Ninja
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dependencias (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libasound2-dev libx11-dev libxrandr-dev libxinerama-dev \
+            libxcursor-dev libxext-dev libxcomposite-dev libfreetype-dev libfontconfig1-dev libgl1-mesa-dev xvfb
+
+      - name: Configurar
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_extra }}
+
+      - name: Compilar
+        run: cmake --build build --config Release --parallel 4
+
+      - name: Pruebas (Catch2)
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Benchmark de CPU (meta ≤ 1 % en Normal, se exige en Apple M1)
+        shell: bash
+        run: |
+          BENCH=$(find build -type f \( -name clip5_bench -o -name clip5_bench.exe \) | head -1)
+          set +e
+          "$BENCH" --segundos 30 --json benchmark-${{ runner.os }}.json
+          code=$?
+          set -e
+          if [ "${{ runner.os }}" = "macOS" ] && [ $code -ne 0 ]; then echo "Normal supera el 1 % en M1"; exit 1; fi
+
+      - name: pluginval (rigurosidad 10)
+        shell: bash
+        run: |
+          curl -sSL -o pluginval.zip "${{ matrix.pluginval }}"
+          unzip -q pluginval.zip
+          VST3=$(find build -type d -name "clip5.vst3" | head -1)
+          if [ "${{ runner.os }}" = "macOS" ]; then PV=pluginval.app/Contents/MacOS/pluginval;
+          elif [ "${{ runner.os }}" = "Windows" ]; then PV=./pluginval.exe; else PV=./pluginval; fi
+          if [ "${{ runner.os }}" = "Linux" ]; then RUN="xvfb-run -a"; else RUN=""; fi
+          $RUN $PV --strictness-level 10 --validate-in-process --validate "$VST3"
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            AU=$(find build -type d -name "clip5.component" | head -1)
+            mkdir -p ~/Library/Audio/Plug-Ins/Components && cp -R "$AU" ~/Library/Audio/Plug-Ins/Components/
+            killall -9 AudioComponentRegistrar || true
+            auval -v aufx Cp5a Cl5x
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clip5-${{ runner.os }}
+          path: |
+            build/**/clip5_artefacts/Release/VST3/
+            build/**/clip5_artefacts/Release/AU/
+            build/**/clip5_artefacts/Release/CLAP/
+            build/**/clip5_artefacts/Release/Standalone/
+            benchmark-*.json

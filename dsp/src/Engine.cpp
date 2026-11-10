@@ -111,7 +111,7 @@ Engine::~Engine() { bank.stopWorker(); }
 
 int Engine::latencyFor (int q, int ph) const noexcept
 {
-    return des->latency[std::clamp (q, 0, 3)][std::clamp (ph, 0, 1)] + ceiling.latency();
+    return des->latency[std::clamp (q, 0, 3)][std::clamp (ph, 0, 1)] + (activeStrict ? ceiling.latency() : 0);
 }
 
 void Engine::prepare (double sampleRate, int numChannels)
@@ -162,6 +162,7 @@ void Engine::prepare (double sampleRate, int numChannels)
     activeTono = std::clamp (params.tono, 0, kNumTonos - 1);
     pendingTono = -1;
 
+    activeStrict = params.strictCeiling;
     bindConfig (std::clamp (params.qualityRealtime, 0, 3), std::clamp (params.phase, 0, 1));
     reset();
 }
@@ -196,8 +197,18 @@ void Engine::bindConfig (int q, int ph)
     }
     pendingTono = -1;
     wetLatency = des->latency[q][ph];
-    totalLatency = wetLatency + ceiling.latency();
+    totalLatency = wetLatency + (activeStrict ? ceiling.latency() : 0);
     bank.setFadeLength ((int) std::lround (0.02 * fs * osFactor));
+}
+
+void Engine::applyPendingConfig() noexcept
+{
+    if (pendingStrict != activeStrict)
+    {
+        activeStrict = pendingStrict;
+        ceiling.reset();
+    }
+    bindConfig (pendingQ, pendingP);
 }
 
 void Engine::reset()
@@ -217,7 +228,8 @@ void Engine::reset()
     ceil.reset (C);
     wetGain.reset (faderGain (p.wetDb));
     dryGain.reset (faderGain (p.dryDb));
-    outGain.reset (dbToGain (p.outputDb - (p.ioLink ? p.inputDb : 0.0f)));
+    outGain.reset (dbToGain (p.outputDb));
+    linkGain.reset (p.ioLink ? dbToGain (-p.inputDb) : 1.0f);
     unitGain.reset (p.unitGain ? 1.0f / dbToGain (p.densityDb) : 1.0f);
     suavDepth.reset (std::clamp (p.suavizado, 0.0f, 1.0f) * (p.suavizadoExtendido ? 3.0f : 2.0f));
     switchState = 0; switchGain = 1.0f;
@@ -362,14 +374,24 @@ void Engine::processSub (float* const* ch, int n, bool realtime, double t0) noex
     // ----- cambio de calidad / fase (cambia latencia): fundido de salida, cambio, fundido de entrada
     const int wantQ = std::clamp (realtime ? p.qualityRealtime : (p.qualityOffline < 0 ? p.qualityRealtime : p.qualityOffline), 0, 3);
     const int wantP = std::clamp (p.phase, 0, 1);
-    if (switchState == 0 && (wantQ != activeQ || wantP != activeP))
+    if (switchState == 0 && (wantQ != activeQ || wantP != activeP || p.strictCeiling != activeStrict))
     {
-        if (! realtime) { bindConfig (wantQ, wantP); }
-        else { switchState = 1; pendingQ = wantQ; pendingP = wantP; }
+        pendingQ = wantQ; pendingP = wantP; pendingStrict = p.strictCeiling;
+        if (! realtime) applyPendingConfig();
+        else switchState = 1;
     }
-    float swFrom = 1.0f, swTo = 1.0f;
-    if (switchState == 1) { swFrom = 1.0f; swTo = 0.0f; }
-    else if (switchState == 2) { swFrom = 0.0f; swTo = 1.0f; }
+    // ganancia del cambio por muestra: 1 → fundido de salida → silencio durante toda la nueva
+    // latencia (las líneas de retardo y los filtros se llenan) → fundido de entrada
+    bool switching = switchState != 0;
+    for (int i = 0; i < n; ++i)
+    {
+        float g = 1.0f;
+        if (switchState == 1) g = 1.0f - (float) (i + 1) / (float) n;
+        else if (switchState == 2) { g = 0.0f; if (--switchHold <= 0) { switchState = 3; switchFade = 0; } }
+        else if (switchState == 4) { g = 0.0f; --switchHold; } // vaciado del retardo del Techo estricto
+        else if (switchState == 3) { g = (float) (++switchFade) / (float) kSwitchFade; if (switchFade >= kSwitchFade) switchState = 0; }
+        rampSw[i] = g;
+    }
 
     // ----- Tono
     if (pendingTono < 0 && p.tono != activeTono) startTonoFade (std::clamp (p.tono, 0, kNumTonos - 1));
@@ -386,13 +408,14 @@ void Engine::processSub (float* const* ch, int n, bool realtime, double t0) noex
     ceil.setTarget (C, n);
     wetGain.setTarget (faderGain (p.wetDb), n);
     dryGain.setTarget (faderGain (p.dryDb), n);
-    outGain.setTarget (dbToGain (p.outputDb - (p.ioLink ? p.inputDb : 0.0f)), n);
+    outGain.setTarget (dbToGain (p.outputDb), n);
+    linkGain.setTarget (p.ioLink ? dbToGain (-p.inputDb) : 1.0f, n);
     unitGain.setTarget (p.unitGain ? 1.0f / dbToGain (std::clamp (p.densityDb, 0.0f, 6.0f)) : 1.0f, n);
     for (int i = 0; i < n; ++i)
     {
         rampIn[i] = inGain.next(); rampInvC[i] = invCeil.next(); rampC[i] = ceil.next();
         rampWet[i] = wetGain.next(); rampDry[i] = dryGain.next(); rampOut[i] = outGain.next();
-        rampUnit[i] = unitGain.next();
+        rampUnit[i] = unitGain.next(); rampLink[i] = linkGain.next();
     }
     const float depth0 = suavDepth.current;
     suavDepth.setTarget (std::clamp (p.suavizado, 0.0f, 1.0f) * (p.suavizadoExtendido ? 3.0f : 2.0f), n);
@@ -417,10 +440,10 @@ void Engine::processSub (float* const* ch, int n, bool realtime, double t0) noex
                 const float z = kInB[c].process (kInA[c].process (s));
                 kin += (double) z * z;
             }
+            // seco: señal original (antes de Entrada) → Entrada solo excita el camino húmedo
+            dryRing[c][(dryPos + (uint32_t) i) & (kDryRing - 1)] = s;
             x[i] = s * rampIn[i];
         }
-        // seco (después de Entrada) a la línea de retardo
-        for (int i = 0; i < n; ++i) dryRing[c][(dryPos + (uint32_t) i) & (kDryRing - 1)] = x[i];
 
         // húmedo
         float* w = wbuf[c];
@@ -431,15 +454,14 @@ void Engine::processSub (float* const* ch, int n, bool realtime, double t0) noex
         }
         frameUN += n;
         runWet (c, w, n, depth0, depth1, uPeak);
-        for (int i = 0; i < n; ++i) w[i] *= rampC[i] * rampUnit[i];
+        for (int i = 0; i < n; ++i) w[i] *= rampC[i] * rampUnit[i] * rampLink[i];
         chain[c].dc.process (w, n);
 
         // mezcla paralela + Salida
         for (int i = 0; i < n; ++i)
         {
             const float d = dryRing[c][(dryPos + (uint32_t) i - (uint32_t) wetLatency) & (kDryRing - 1)];
-            const float g = swFrom + (swTo - swFrom) * (float) (i + 1) / (float) n;
-            io[i] = (w[i] * rampWet[i] + d * rampDry[i]) * rampOut[i] * g;
+            io[i] = (w[i] * rampWet[i] + d * rampDry[i]) * rampOut[i] * (switching ? rampSw[i] : 1.0f);
         }
     }
     dryPos += (uint32_t) n;
@@ -462,14 +484,19 @@ void Engine::processSub (float* const* ch, int n, bool realtime, double t0) noex
     }
 
     // ----- Techo estricto (al final de la cadena: garantía absoluta), latencia constante
-    ceiling.process (ch, n, C, p.strictCeiling);
+    ceiling.process (ch, n, C, activeStrict);
 
     if (switchState == 1)
     {
-        bindConfig (pendingQ, pendingP);
-        switchState = 2;
+        switchState = 4;
+        switchHold = activeStrict ? ceiling.latency() : 0;
     }
-    else if (switchState == 2) switchState = 0;
+    if (switchState == 4 && switchHold <= 0)
+    {
+        applyPendingConfig();
+        switchState = 2;
+        switchHold = totalLatency + 64;
+    }
 
     // ----- medición de salida (el true peak lo entrega el Techo estricto, que ya lo detecta)
     if (! p.meteringEnabled) return;

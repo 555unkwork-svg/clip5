@@ -162,7 +162,8 @@ struct TruePeakDetector
     promedio es un mínimo que incluye la muestra, así que el promedio no la supera. El núcleo
     triangular reduce la modulación de la ganancia (menos sobretiro entre muestras). El release es
     exponencial y solo puede bajar la ganancia (min), por lo que conserva la garantía.
-    Latencia fija = W + 16 muestras (también cuando está desactivado: la latencia no cambia). */
+    Latencia = W + 16 muestras cuando está activo; desactivado no agrega latencia (modo de baja latencia
+    con fase mínima). El motor hace un fundido al conmutarlo, igual que con un cambio de calidad. */
 class StrictCeiling
 {
 public:
@@ -197,9 +198,22 @@ public:
 
     int latency() const noexcept { return delay; }
 
-    /** ceilingLin: techo lineal absoluto. enabled = false → solo retardo. */
+    /** ceilingLin: techo lineal absoluto. enabled = false → sin retardo ni limitación; solo mide
+        el true peak de la salida (para los medidores). */
     void process (float* const* ch, int n, float ceilingLin, bool enabled) noexcept
     {
+        if (! enabled)
+        {
+            outTp = 0.0f;
+            minGain = 1.0f;
+            for (int i = 0; i < n; ++i)
+                for (int c = 0; c < nch; ++c)
+                {
+                    const float x = ch[c][i];
+                    outTp = std::max (outTp, std::max (tp[c].push (x, outTp), std::abs (x)));
+                }
+            return;
+        }
         const float target = ceilingLin * kMargin;
         minGain = 1.0f;
         outTp = 0.0f;
@@ -222,7 +236,7 @@ public:
 
             peakRing[pos & (kRing - 1)] = peak;
             blockPeak = std::max (blockPeak, peak);
-            const float r = (enabled && peak > target) ? target / peak : 1.0f;
+            const float r = peak > target ? target / peak : 1.0f;
 
             // 2) mínimo deslizante sobre W+1 requisitos (deque monótona)
             pushMin (r);

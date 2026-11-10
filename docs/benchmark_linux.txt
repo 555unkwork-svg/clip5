@@ -1,0 +1,18 @@
+clip5 benchmark — 30 s por señal (mínimo de 3), estéreo, 48000 Hz, bloques de 256
+calidad     fase    señal        ns/muestra    % núcleo       meta
+Eco 1x      lineal  ruido rosa         152.5       0.732%           
+Eco 1x      lineal  música            159.2       0.764%           
+Normal 2x   lineal  ruido rosa         230.6       1.107% > 1 % FALLA
+Normal 2x   lineal  música            235.5       1.130% > 1 % FALLA
+Alta 4x     lineal  ruido rosa         409.1       1.964%           
+Alta 4x     lineal  música            415.1       1.992%           
+Máxima 8x  lineal  ruido rosa         862.0       4.137%           
+Máxima 8x  lineal  música            785.1       3.769%           
+Eco 1x      mínima ruido rosa         136.5       0.655%           
+Eco 1x      mínima música            160.3       0.770%           
+Normal 2x   mínima ruido rosa         202.5       0.972% ≤ 1 %  OK
+Normal 2x   mínima música            221.3       1.062% > 1 % FALLA
+Alta 4x     mínima ruido rosa         333.6       1.601%           
+Alta 4x     mínima música            340.5       1.634%           
+Máxima 8x  mínima ruido rosa         637.8       3.061%           
+Máxima 8x  mínima música            601.9       2.889%           

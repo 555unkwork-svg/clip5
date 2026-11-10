@@ -1,9 +1,10 @@
 // clip5 — motor completo (cadena de señal de la especificación, fases 2–4).
 //
-//  Entrada → [seco: retardo = latencia húmeda] ──────────────────────────────┐
-//          → 1/C → ↑N → núcleo fusionado (tabla + ADAA) → Suavizado → ↓N + Tono (FIR único,
-//            absorbe caída y ½ muestra del ADAA) → C·(1/g₀ si Ganancia unitaria) → DC (Suave)
-//          → HÚMEDO ──(+)── SECO → Salida → Techo estricto (true peak, lookahead) → medición
+//  entrada ─┬─ [SECO: señal original, retardo = latencia húmeda] ─────────────────────┐
+//           └─ Entrada → 1/C → ↑N → núcleo fusionado (tabla + ADAA) → Suavizado → ↓N + Tono
+//              (FIR único: absorbe caída y ½ muestra del ADAA) → C·(1/g₀ si Ganancia unitaria)
+//              → (1/Entrada si Enlace E/S) → DC (Suave) → HÚMEDO ──(+)── SECO
+//           → Salida → Techo estricto (true peak, lookahead; opcional) → medición
 //
 // Sin allocations, locks ni I/O en process(). Todo se reserva en prepare().
 #pragma once
@@ -128,11 +129,15 @@ private:
     int activeTono = 0, pendingTono = -1, tonoFadePos = 0, tonoFadeLen = 960;
 
     // fundido para cambios de calidad / fase (cambian latencia y estados)
-    int switchState = 0; // 0 nada, 1 bajando, 2 subiendo
-    float switchGain = 1.0f, switchStep = 0.0f;
+    int switchState = 0; // 0 nada, 1 fundido de salida, 4 vaciado, 2 silencio (nueva latencia), 3 fundido de entrada
+    int switchHold = 0, switchFade = 0;
+    static constexpr int kSwitchFade = 256;
+    float switchGain = 1.0f;
     int pendingQ = -1, pendingP = -1;
+    bool activeStrict = true, pendingStrict = true;
+    void applyPendingConfig() noexcept;
 
-    LinearRamp inGain, invCeil, ceil, wetGain, dryGain, outGain, unitGain, suavDepth;
+    LinearRamp inGain, invCeil, ceil, wetGain, dryGain, outGain, unitGain, suavDepth, linkGain;
 
     // buffers
     alignas (16) float xbuf[kMaxChannels][kSub] {};
@@ -140,7 +145,7 @@ private:
     alignas (16) float os[kSub * kMaxOs] {};
     alignas (16) float os2[kSub * kMaxOs] {};
     alignas (16) float uabs[kSub * kMaxOs] {};
-    alignas (16) float rampIn[kSub] {}, rampInvC[kSub] {}, rampC[kSub] {}, rampWet[kSub] {}, rampDry[kSub] {}, rampOut[kSub] {}, rampUnit[kSub] {};
+    alignas (16) float rampIn[kSub] {}, rampInvC[kSub] {}, rampC[kSub] {}, rampWet[kSub] {}, rampDry[kSub] {}, rampOut[kSub] {}, rampUnit[kSub] {}, rampSw[kSub] {}, rampLink[kSub] {};
     static constexpr int kDryRing = 8192;
     float dryRing[kMaxChannels][kDryRing] {};
     uint32_t dryPos = 0;

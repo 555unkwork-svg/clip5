@@ -80,7 +80,7 @@ int main (int argc, char** argv)
     const char* qn[] = { "Eco 1x", "Normal 2x", "Alta 4x", "Máxima 8x" };
     const char* pn[] = { "lineal", "mínima" };
 
-    std::printf ("clip5 benchmark — %.0f s por señal, estéreo, %.0f Hz, bloques de %d\n", seconds, fs, block);
+    std::printf ("clip5 benchmark — %.0f s por señal (mínimo de 3), estéreo, %.0f Hz, bloques de %d\n", seconds, fs, block);
     std::printf ("%-11s %-7s %-11s %12s %12s %10s\n", "calidad", "fase", "señal", "ns/muestra", "% núcleo", "meta");
     std::vector<Result> results;
     for (int ph = 0; ph < 2; ++ph)
@@ -96,16 +96,21 @@ int main (int argc, char** argv)
                 p.qualityRealtime = q; p.phase = ph;
                 e.setParams (p);
                 e.prepare (fs, 2);
-                std::vector<float> l (sig), r (sig);
-                MeterFrame f;
-                const auto t0 = std::chrono::steady_clock::now();
-                for (int i = 0; i < n; i += block)
+                // mínimo de 3 repeticiones: aísla interrupciones del sistema operativo / máquina virtual
+                double el = 1e30;
+                for (int rep = 0; rep < 3; ++rep)
                 {
-                    float* ch[2] = { l.data() + i, r.data() + i };
-                    e.process (ch, std::min (block, n - i), true);
-                    while (e.meterFifo().pop (f)) {}
+                    std::vector<float> l (sig), r (sig);
+                    MeterFrame f;
+                    const auto t0 = std::chrono::steady_clock::now();
+                    for (int i = 0; i < n; i += block)
+                    {
+                        float* ch[2] = { l.data() + i, r.data() + i };
+                        e.process (ch, std::min (block, n - i), true);
+                        while (e.meterFifo().pop (f)) {}
+                    }
+                    el = std::min (el, std::chrono::duration<double> (std::chrono::steady_clock::now() - t0).count());
                 }
-                const double el = std::chrono::duration<double> (std::chrono::steady_clock::now() - t0).count();
                 const double ns = el * 1e9 / n;
                 const double pct = 100.0 * el / seconds;
                 worstPct = std::max (worstPct, pct);

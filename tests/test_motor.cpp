@@ -317,3 +317,28 @@ TEST_CASE ("Mono", "[motor]")
     for (float v : x) REQUIRE (std::isfinite (v));
     CHECK (testutil::db (*std::max_element (x.begin(), x.end())) <= -1.0 + 0.01);
 }
+
+TEST_CASE ("Techo estricto apagado: sin latencia extra; conmutación en vivo sin saltos", "[motor]")
+{
+    Engine e;
+    EngineParams p = neutral();
+    p.phase = (int) PhaseMode::Minima; p.qualityRealtime = 1; p.strictCeiling = false;
+    e.setParams (p);
+    e.prepare (48000.0, 2);
+    CHECK (e.latencySamples() == e.designs().latency[1][1]);
+    CHECK (e.latencySamples() <= 8);
+    // conmutar en tiempo real: fundido de salida/entrada, sin NaN ni saltos grandes
+    auto x = testutil::sine (440.0, 48000.0, 48000, 0.3);
+    std::vector<float> l (x), r (x);
+    float prev = 0, maxStep = 0;
+    for (int b = 0; b < 48000 / 256; ++b)
+    {
+        p.strictCeiling = (b / 40) % 2 == 1;
+        e.setParams (p);
+        float* ch[2] = { l.data() + b * 256, r.data() + b * 256 };
+        e.process (ch, 256, true);
+        for (int i = 0; i < 256; ++i) { REQUIRE (std::isfinite (ch[0][i])); maxStep = std::max (maxStep, std::abs (ch[0][i] - prev)); prev = ch[0][i]; }
+    }
+    CAPTURE (maxStep);
+    CHECK (maxStep < 0.05f); // 440 Hz a 0,3: paso natural ≈ 0,017
+}
