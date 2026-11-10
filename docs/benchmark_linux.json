@@ -1,0 +1,12 @@
+{
+ "fs": 48000, "segundos": 60, "bloque": 256, "resultados": [
+  {"calidad": "Eco 1x", "fase": "lineal", "ns_por_muestra": 383.79, "pct_nucleo": 1.8422},
+  {"calidad": "Normal 2x", "fase": "lineal", "ns_por_muestra": 473.06, "pct_nucleo": 2.2707},
+  {"calidad": "Alta 4x", "fase": "lineal", "ns_por_muestra": 689.40, "pct_nucleo": 3.3091},
+  {"calidad": "Máxima 8x", "fase": "lineal", "ns_por_muestra": 1104.44, "pct_nucleo": 5.3013},
+  {"calidad": "Eco 1x", "fase": "mínima", "ns_por_muestra": 335.23, "pct_nucleo": 1.6091},
+  {"calidad": "Normal 2x", "fase": "mínima", "ns_por_muestra": 407.55, "pct_nucleo": 1.9563},
+  {"calidad": "Alta 4x", "fase": "mínima", "ns_por_muestra": 578.14, "pct_nucleo": 2.7751},
+  {"calidad": "Máxima 8x", "fase": "mínima", "ns_por_muestra": 912.68, "pct_nucleo": 4.3809}
+ ]
+}
